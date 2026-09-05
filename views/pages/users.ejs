@@ -1,0 +1,316 @@
+<div class="space-y-6" x-data="Object.assign(userManagement(), { search: '' })">
+
+    <!-- Header Page & Kolom Pencarian -->
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-800">Manajemen User</h1>
+            <p class="text-sm text-gray-500 mt-1">Kelola data pegawai, role, dan hierarki atasan.</p>
+        </div>
+        
+        <div class="flex items-center gap-3 w-full sm:w-auto">
+            <!-- Kolom Input Search -->
+            <div class="relative w-full sm:w-64">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-400">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                </span>
+                <input type="text" x-model="search" placeholder="Cari..." class="w-full pl-9 pr-4 py-2 bg-white border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none shadow-sm">
+            </div>
+
+            <% if (['superadmin', 'admin_cabang', 'manager', 'supervisor'].includes(user.role)) { %>
+                <button @click="openModalAdd()" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-lg transition shadow-sm text-sm whitespace-nowrap">
+                    + Tambah User
+                </button>
+            <% } %>
+        </div>
+    </div>
+
+    <!-- Alert Notifikasi -->
+    <% if (locals.success) { %>
+        <div class="p-4 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-lg text-sm"><%= success %></div>
+    <% } %>
+    <% if (locals.error) { %>
+        <div class="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm"><%= error %></div>
+    <% } %>
+
+    <!-- Tabel Data User dengan Support Responsive & Live Search -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div class="w-full overflow-x-auto">
+            <table class="w-full text-left border-collapse min-w-[700px]">
+                <thead>
+                    <tr class="bg-gray-50 border-b border-gray-200 text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                        <th class="px-6 py-4 text-center">NIP</th>
+                        <th class="px-6 py-4 text-center">Nama</th>
+                        <th class="px-6 py-4 text-center">Role</th>
+                        <th class="px-6 py-4 text-center">Unit</th>
+                        <th class="px-6 py-4 text-center">Atasan</th>
+                        <th class="px-6 py-4 text-center">Cabang</th>
+                        <th class="px-6 py-4 text-center">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200 text-sm text-gray-700 text-center">
+                    <% if (usersList.length === 0) { %>
+                        <tr><td colspan="7" class="px-6 py-4 text-center text-gray-400">Belum ada data user yang dapat ditampilkan.</td></tr>
+                    <% } else { %>
+                        <% usersList.forEach(u => { %>
+                            <!-- Baris tabel difilter secara reaktif berdasarkan nama atau NIP -->
+                            <tr class="hover:bg-gray-50 transition"
+                                x-show="search === '' || [
+                                    '<%= u.nip %>', 
+                                    '<%= u.name %>', 
+                                    '<%= u.role %>', 
+                                    '<%= u.unit_name || '' %>', 
+                                    '<%= u.supervisor_name || '' %>', 
+                                    '<%= u.branch_name %>'
+                                ].some(val => val.toLowerCase().includes(search.toLowerCase()))">
+                                <td class="px-6 py-4">
+                                    <p class="font-semibold text-gray-800"><%= u.nip %></p>
+                                </td>
+                                <td class="px-6 py-4">
+                                    <p class="font-semibold text-gray-800"><%= u.name %></p>
+                                </td>
+                                <td class="px-6 py-4">
+                                    <span class="px-2.5 py-1 text-xs font-bold uppercase rounded-full 
+                                        <%= u.role === 'superadmin' ? 'bg-red-100 text-red-700' : 
+                                        (u.role === 'manager' ? 'bg-purple-100 text-purple-700' : 
+                                        (u.role === 'supervisor' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-700')) %>">
+                                        <%= u.role.replace('_', ' ') %>
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4">
+                                    <p class="font-semibold text-gray-800"><%= u.unit_name || '-' %></p>
+                                </td>
+                                <td class="px-6 py-4 font-semibold text-gray-800"><%= u.supervisor_name || '-' %></td>
+                                <td class="px-6 py-4 font-semibold text-gray-800"><%= u.branch_name %></td>
+                                <td class="px-6 py-4 text-center space-x-2 whitespace-nowrap">
+                                    <% if (['superadmin', 'admin_cabang', 'manager', 'supervisor'].includes(user.role) && u.role !== 'superadmin') { %>
+                                        <!-- Tombol Edit Profil (Bisa diakses Manager/Supervisor sesuai unitnya) -->
+                                        <button @click='editUser(<%= JSON.stringify(u) %>)' class="text-blue-600 hover:underline font-medium font-semibold">Edit</button>
+                                        
+                                        <!-- Tombol Reset Password (KHUSUS SUPERADMIN & ADMIN CABANG) -->
+                                        <% if (['superadmin', 'admin_cabang'].includes(user.role)) { %>
+                                            <form action="/users/reset-password/<%= u.id %>" method="POST" class="inline" onsubmit="return confirm('Reset password user ini menjadi 123456?')">
+                                                <button type="submit" class="text-amber-600 hover:underline font-medium font-semibold">Reset</button>
+                                            </form>
+                                        <% } %>
+
+                                        <!-- Tombol Hapus -->
+                                        <form action="/users/delete/<%= u.id %>" method="POST" class="inline" onsubmit="return confirm('Hapus user ini?')">
+                                            <button type="submit" class="text-red-600 hover:underline font-medium font-semibold">Hapus</button>
+                                        </form>
+                                    <% } %>
+                                </td>
+                            </tr>
+                        <% }) %>
+                    <% } %>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Modal Form (Digunakan untuk Tambah & Edit Sekaligus) -->
+    <div x-show="openAddModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" style="display: none;">
+        <div @click.away="openAddModal = false" class="bg-white rounded-xl shadow-xl w-full max-w-lg p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+            <h3 class="text-lg font-bold text-gray-800" x-text="isEditMode ? 'Edit User' : 'Tambah User Baru'"></h3>
+            
+            <!-- Action Form otomatis berubah dinamis antara /users/create atau /users/update/:id -->
+            <form :action="isEditMode ? '/users/update/' + editId : '/users/create'" method="POST" class="space-y-4">
+                
+                <!-- Pilih Cabang -->
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-gray-600 mb-1">Penempatan Cabang</label>
+                    <select name="branch_id" x-model="selectedBranch" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white">
+                        <option value="">-- Pilih Cabang --</option>
+                        <% branches.forEach(b => { %>
+                            <option value="<%= b.id %>"><%= b.name %></option>
+                        <% }) %>
+                    </select>
+                </div>
+
+                <!-- Pilih Role -->
+                <div x-show="selectedBranch !== ''" style="display: none;">
+                    <label class="block text-xs font-semibold uppercase text-gray-600 mb-1">Role / Jabatan</label>
+                    <select name="role" x-model="selectedRole" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white">
+                        <option value="">-- Pilih Role --</option>
+                        
+                        <!-- Role Manager & Admin Cabang HANYA MUNCUL jika yang login Superadmin atau Admin Cabang -->
+                        <% if (['superadmin', 'admin_cabang'].includes(user.role)) { %>
+                            <option value="manager">Manager</option>
+                            <option value="admin_cabang" x-show="'<%= user.role %>' === 'superadmin'">Admin Cabang</option>
+                        <% } %>
+
+                        <!-- Role Supervisor MUNCUL untuk Superadmin, Admin Cabang, atau Manager -->
+                        <% if (['superadmin', 'admin_cabang', 'manager'].includes(user.role)) { %>
+                            <option value="supervisor">Supervisor</option>
+                        <% } %>
+
+                        <!-- Role Staf MUNCUL untuk SEMUA role yang bisa akses tambah user -->
+                        <option value="staf">Staf</option>
+                    </select>
+                </div>
+
+                <!-- Pilih Unit -->
+                <div x-show="selectedRole !== '' && selectedRole !== 'admin_cabang'" style="display: none;">
+                    <label class="block text-xs font-semibold uppercase text-gray-600 mb-1">Pilih Unit Kerja</label>
+                    <select name="unit_id" x-model="selectedUnit" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white">
+                        <option value="">-- Pilih Unit --</option>
+                        <template x-for="unit in filteredUnits" :key="unit.id">
+                            <option :value="unit.id" x-text="unit.name"></option>
+                        </template>
+                    </select>
+                </div>
+
+                <!-- Pilih Atasan -->
+                <div x-show="['supervisor', 'staf'].includes(selectedRole)" style="display: none;">
+                    <label class="block text-xs font-semibold uppercase text-gray-600 mb-1">Lapor Ke (Atasan Langsung)</label>
+                    <select name="supervisor_id" x-model="selectedSuperior" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white">
+                        <option value="">-- Pilih Atasan --</option>
+                        <template x-for="sup in filteredSuperiors" :key="sup.id">
+                            <option :value="sup.id" x-text="sup.name + ' (' + sup.role.toUpperCase() + ')'"></option>
+                        </template>
+                    </select>
+                </div>
+
+                <hr class="border-gray-200">
+
+                <!-- Data Pribadi -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold uppercase text-gray-600 mb-1">NIP</label>
+                        <input type="text" name="nip" x-model="inputNip" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    </div>
+                    
+                    <!-- Password HANYA MUNCUL saat Tambah User (!isEditMode) -->
+                    <div x-show="!isEditMode">
+                        <label class="block text-xs font-semibold uppercase text-gray-600 mb-1">Password</label>
+                        <input type="password" name="password" :required="!isEditMode" placeholder="Password awal" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-gray-600 mb-1">Nama Lengkap</label>
+                    <input type="text" name="name" x-model="inputName" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                </div>
+
+                <div class="flex justify-end space-x-2 pt-2">
+                    <button type="button" @click="openAddModal = false" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium">Batal</button>
+                    <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium">Simpan Perubahan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Script Alpine.js Pintar untuk Handle Tambah & Edit Sekaligus -->
+<script>
+    document.addEventListener('alpine:init', () => {
+        Alpine.data('userManagement', () => ({
+            openAddModal: false,
+            isEditMode: false,
+            editId: null,
+            
+            allUnits: <%- unitsJSON %>,
+            allSuperiors: <%- superiorsJSON %>,
+            allBranches: <%- JSON.stringify(branches) %>,
+            
+            selectedBranch: '',
+            selectedRole: '',
+            selectedUnit: '',
+            selectedSuperior: '',
+            inputNip: '',
+            inputName: '',
+
+            init() {
+                this.$watch('openAddModal', (val) => {
+                    if (val && !this.isEditMode) {
+                        let branchOptions = document.querySelectorAll('select[name="branch_id"] option');
+                        let validBranches = Array.from(branchOptions).filter(opt => opt.value !== "");
+                        if (validBranches.length === 1) {
+                            this.selectedBranch = validBranches[0].value;
+                        }
+                    }
+                });
+
+                this.$watch('selectedRole', (newRole) => {
+                    if (!this.isEditMode && newRole !== '') {
+                        this.$nextTick(() => {
+                            if (this.filteredUnits.length === 1) {
+                                this.selectedUnit = String(this.filteredUnits[0].id);
+                            } else {
+                                this.selectedUnit = '';
+                            }
+                        });
+                    } else if (!this.isEditMode) {
+                        this.selectedUnit = '';
+                        this.selectedSuperior = '';
+                    }
+                });
+
+                this.$watch('filteredUnits', (newUnits) => {
+                    if (!this.isEditMode && newUnits.length === 1) {
+                        this.selectedUnit = String(newUnits[0].id);
+                    }
+                });
+
+                this.$watch('filteredSuperiors', (newSups) => {
+                    if (!this.isEditMode && newSups.length === 1) {
+                        this.selectedSuperior = String(newSups[0].id);
+                    }
+                });
+            },
+
+            openModalAdd() {
+                this.isEditMode = false;
+                this.editId = null;
+                this.selectedBranch = '';
+                this.selectedRole = '';
+                this.selectedUnit = '';
+                this.selectedSuperior = '';
+                this.inputNip = '';
+                this.inputName = '';
+                this.openAddModal = true;
+            },
+
+            editUser(u) {
+                this.isEditMode = true;
+                this.editId = u.id;
+                this.inputNip = u.nip ? String(u.nip) : '';
+                this.inputName = u.name ? String(u.name) : '';
+                
+                this.selectedBranch = u.branch_id !== null && u.branch_id !== undefined ? String(u.branch_id) : '';
+                this.selectedRole = u.role ? String(u.role) : '';
+                
+                this.openAddModal = true;
+                
+                this.$nextTick(() => {
+                    this.selectedUnit = u.unit_id !== null && u.unit_id !== undefined ? String(u.unit_id) : '';
+                    this.$nextTick(() => {
+                        this.selectedSuperior = u.supervisor_id !== null && u.supervisor_id !== undefined ? String(u.supervisor_id) : '';
+                    });
+                });
+            },
+            
+            get filteredUnits() {
+                let unitsInBranch = this.allUnits.filter(u => u.branch_id == this.selectedBranch);
+                if (this.selectedRole === 'manager') {
+                    return unitsInBranch.filter(u => u.parent_unit_id === null);
+                }
+                if (this.selectedRole === 'supervisor' || this.selectedRole === 'staf') {
+                    return unitsInBranch.filter(u => u.parent_unit_id !== null);
+                }
+                return unitsInBranch;
+            },
+            
+            get filteredSuperiors() {
+                if (this.selectedRole === 'supervisor') {
+                    let currentUnit = this.allUnits.find(u => u.id == this.selectedUnit);
+                    if (!currentUnit || !currentUnit.parent_unit_id) return [];
+                    return this.allSuperiors.filter(s => s.role === 'manager' && s.unit_id == currentUnit.parent_unit_id);
+                }
+                if (this.selectedRole === 'staf') {
+                    return this.allSuperiors.filter(s => s.role === 'supervisor' && String(s.unit_id) === String(this.selectedUnit));
+                }
+                return [];
+            }
+        }));
+    });
+</script>

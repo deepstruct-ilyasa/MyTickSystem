@@ -1,0 +1,142 @@
+<div class="space-y-6" x-data="{ search: '', openAddModal: false }">
+    <!-- Header Page & Kolom Pencarian -->
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-800">Manajemen Cabang</h1>
+            <p class="text-sm text-gray-500 mt-1">Kelola data seluruh cabang perusahaan.</p>
+        </div>
+        
+        <div class="flex items-center gap-3 w-full sm:w-auto">
+            <!-- Kolom Input Search -->
+            <div class="relative w-full sm:w-64">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-400">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                </span>
+                <input type="text" x-model="search" placeholder="Cari..." class="w-full pl-9 pr-4 py-2 bg-white border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none shadow-sm">
+            </div>
+
+            <!-- Tombol Tambah (Hanya Superadmin) -->
+            <% if (user.role === 'superadmin') { %>
+                <button @click="openAddModal = true" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-lg transition shadow-sm text-sm whitespace-nowrap">
+                    + Tambah Cabang
+                </button>
+            <% } %>
+        </div>
+    </div>
+
+    <!-- Alert Notifikasi -->
+    <% if (locals.success) { %>
+        <div class="p-4 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-lg text-sm"><%= success %></div>
+    <% } %>
+    <% if (locals.error) { %>
+        <div class="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm"><%= error %></div>
+    <% } %>
+
+    <!-- Tabel Data Cabang dengan Support Responsive & Live Search -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div class="w-full overflow-x-auto">
+            <table class="w-full text-left border-collapse min-w-[600px]">
+                <thead>
+                    <tr class="bg-gray-50 border-b border-gray-200 text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                        <th class="px-6 py-4">Kode Cabang</th>
+                        <th class="px-6 py-4">Nama Cabang</th>
+                        <th class="px-6 py-4">Alamat</th>
+                        <th class="px-6 py-4 text-right">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200 text-sm text-gray-700">
+                    <% if (branches.length === 0) { %>
+                        <tr><td colspan="4" class="px-6 py-4 text-center text-gray-400">Belum ada data cabang.</td></tr>
+                    <% } else { %>
+                        <% branches.forEach(branch => { %>
+                            <!-- Baris tabel difilter secara reaktif berdasarkan kode atau nama cabang -->
+                            <tr class="hover:bg-gray-50 transition"
+                                x-show="search === '' || [
+                                    '<%= branch.branch_code %>', 
+                                    '<%= branch.name %>', 
+                                    '<%= branch.address || '' %>'
+                                ].some(val => val.toLowerCase().includes(search.toLowerCase()))">
+                                <td class="px-6 py-4 font-mono font-semibold text-blue-600"><%= branch.branch_code %></td>
+                                <td class="px-6 py-4 font-medium"><%= branch.name %></td>
+                                <td class="px-6 py-4 text-gray-500"><%= branch.address || '-' %></td>
+                                <td class="px-6 py-4 text-right space-x-2 whitespace-nowrap">
+                                    <button onclick="openEditModal('<%= branch.id %>', '<%= branch.branch_code %>', '<%= branch.name %>', '<%= branch.address %>')" 
+                                        class="text-blue-600 hover:underline font-medium">Edit</button>
+                                    
+                                    <% if (user.role === 'superadmin') { %>
+                                        <form action="/branches/delete/<%= branch.id %>" method="POST" class="inline" onsubmit="return confirm('Yakin ingin menghapus cabang ini?')">
+                                            <button type="submit" class="text-red-600 hover:underline font-medium">Hapus</button>
+                                        </form>
+                                    <% } %>
+                                </td>
+                            </tr>
+                        <% }) %>
+                    <% } %>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Modal Tambah Cabang (Alpine.js) -->
+    <div x-show="openAddModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" style="display: none;">
+        <div @click.away="openAddModal = false" class="bg-white rounded-xl shadow-xl w-full max-w-md p-6 space-y-4">
+            <h3 class="text-lg font-bold text-gray-800">Tambah Cabang Baru</h3>
+            <form action="/branches/create" method="POST" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-gray-600 mb-1">Kode Cabang (Unik, misal: JKT1)</label>
+                    <input type="text" name="branch_code" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-gray-600 mb-1">Nama Cabang</label>
+                    <input type="text" name="name" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-gray-600 mb-1">Alamat</label>
+                    <textarea name="address" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm"></textarea>
+                </div>
+                <div class="flex justify-end space-x-2 pt-2">
+                    <button type="button" @click="openAddModal = false" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium">Batal</button>
+                    <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium">Simpan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Edit Cabang -->
+    <div id="editModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" style="display: none;">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6 space-y-4">
+            <h3 class="text-lg font-bold text-gray-800">Edit Cabang</h3>
+            <form id="editForm" method="POST" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-gray-600 mb-1">Kode Cabang</label>
+                    <input type="text" id="edit_branch_code" name="branch_code" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-gray-600 mb-1">Nama Cabang</label>
+                    <input type="text" id="edit_name" name="name" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-gray-600 mb-1">Alamat</label>
+                    <textarea id="edit_address" name="address" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"></textarea>
+                </div>
+                <div class="flex justify-end space-x-2 pt-2">
+                    <button type="button" onclick="closeEditModal()" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium">Batal</button>
+                    <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium">Update</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function openEditModal(id, code, name, address) {
+    document.getElementById('editForm').action = '/branches/update/' + id;
+    document.getElementById('edit_branch_code').value = code;
+    document.getElementById('edit_name').value = name;
+    document.getElementById('edit_address').value = address !== 'null' ? address : '';
+    document.getElementById('editModal').style.display = 'flex';
+}
+function closeEditModal() {
+    document.getElementById('editModal').style.display = 'none';
+}
+</script>
