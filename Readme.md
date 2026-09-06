@@ -16,7 +16,7 @@ Sistem Ticketing profesional dengan manajemen hierarki (Superadmin, Admin Cabang
     ```
 
 3. **Konfigurasi Environment:**
-    - Rename atau saling file .env.example menjadi .env
+    - Rename atau salin file .env.example menjadi .env
     ```bash
     cp .env.example .env
     ```

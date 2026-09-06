@@ -1,0 +1,250 @@
+<div class="max-w-5xl mx-auto py-6 px-4 sm:px-6 lg:px-8 space-y-6">
+    
+    <div>
+        <a href="/tickets" class="inline-flex items-center text-sm font-medium text-gray-500 hover:text-blue-600 transition">
+            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+            Kembali ke Daftar Tiket
+        </a>
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 md:p-8">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between border-b border-gray-100 pb-6 gap-4">
+            <div>
+                <span class="text-xs font-semibold uppercase tracking-wider text-blue-600 bg-blue-50 px-3 py-1 rounded-full"><%= ticket.category %></span>
+                <h1 class="text-2xl font-bold text-gray-900 mt-2"><%= ticket.ticket_number %></h1>
+                <p class="text-xs text-gray-400 mt-1">Dibuat pada: <%= new Date(ticket.created_at).toLocaleString('id-ID') %></p>
+            </div>
+            
+            <div class="flex items-center space-x-2">
+                <% 
+                    let pColor = 'bg-gray-100 text-gray-700';
+                    if(ticket.priority === 'High') pColor = 'bg-orange-100 text-orange-700';
+                    if(ticket.priority === 'Urgent') pColor = 'bg-red-100 text-red-700';
+                    if(ticket.priority === 'Medium') pColor = 'bg-blue-100 text-blue-700';
+                %>
+                <span class="px-3 py-1 rounded-full text-xs font-semibold <%= pColor %>">Prioritas: <%= ticket.priority %></span>
+
+                <% 
+                    let sColor = 'bg-yellow-100 text-yellow-800';
+                    if(ticket.status === 'Process') sColor = 'bg-blue-100 text-blue-800';
+                    if(ticket.status === 'Resolved') sColor = 'bg-green-100 text-green-800';
+                    if(ticket.status === 'Closed') sColor = 'bg-gray-200 text-gray-800';
+                    if(ticket.status === 'Transferred') sColor = 'bg-purple-100 text-purple-800';
+                %>
+                <span class="px-3 py-1 rounded-full text-xs font-semibold <%= sColor %>">Status: <%= ticket.status %></span>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 py-6 border-b border-gray-100 text-sm">
+            
+            <div>
+                <span class="block text-xs font-semibold uppercase text-gray-400">Pelapor</span>
+                <span class="font-medium text-gray-800"><%= ticket.creator_name %></span>
+                <span class="block text-xs text-gray-500">NIP: <%= ticket.creator_nip || '-' %></span>
+                <% if (user.role === 'superadmin') { %>
+                    <span class="block text-xs text-gray-500">Cabang: <%= ticket.branch_name %></span>
+                <% } %>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4 lg:contents">
+                <div>
+                    <span class="block text-xs font-semibold uppercase text-gray-400">Unit Asal</span>
+                    <span class="font-medium text-gray-800"><%= ticket.creator_unit_name || '-' %></span>
+                </div>
+
+                <div>
+                    <span class="block text-xs font-semibold uppercase text-gray-400">Unit Tujuan</span>
+                    <span class="font-medium text-gray-800"><%= ticket.target_unit_name %></span>
+                </div>
+            </div>
+
+            <div>
+                <span class="block text-xs font-semibold uppercase text-gray-400">Detail Kendala</span>
+                <span class="font-medium text-gray-800"><%= ticket.issue_description %></span>
+            </div>
+
+        </div>
+
+        <div class="py-6 space-y-2">
+            <h3 class="text-xs font-semibold uppercase text-gray-400">Pesan / Penjelasan Lengkap</h3>
+            <div class="p-4 bg-gray-50 rounded-xl border border-gray-200 text-sm text-gray-700 whitespace-pre-line"><%= ticket.description %></div>
+        </div>
+
+        <% if (ticket.attachment_url) { %>
+            <div class="pt-4 border-t border-gray-100 flex items-center justify-between" x-data="{ openModal: false }">
+                <span class="text-xs font-semibold uppercase text-gray-400">Lampiran File</span>
+                
+                <button type="button" @click="openModal = true" class="inline-flex items-center px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-semibold transition">
+                    <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                    Lihat Lampiran (Pop-up)
+                </button>
+
+                <div x-show="openModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" @click.self="openModal = false">
+                    <div class="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
+                        
+                        <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50">
+                            <div>
+                                <h3 class="font-bold text-gray-800 text-sm">Pratinjau Lampiran - <%= ticket.ticket_number %></h3>
+                                <p class="text-xs text-gray-500">File: <%= ticket.attachment_url.split('/').pop() %></p>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <a href="<%= ticket.attachment_url %>" download class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold transition">
+                                    Unduh File
+                                </a>
+                                <button @click="openModal = false" class="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-200/50 transition">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="p-6 overflow-y-auto flex-1 flex items-center justify-center bg-gray-900/5">
+                            <% if (ticket.attachment_url.match(/\.(jpg|jpeg|png|gif|webp)$/i)) { %>
+                                <img src="<%= ticket.attachment_url %>" alt="Lampiran Tiket" class="max-h-[70vh] w-auto rounded-lg shadow-md object-contain">
+                            <% } else if (ticket.attachment_url.match(/\.pdf$/i)) { %>
+                                <iframe src="<%= ticket.attachment_url %>" class="w-full h-[70vh] rounded-lg border border-gray-200"></iframe>
+                            <% } else { %>
+                                <div class="text-center py-12">
+                                    <p class="text-sm text-gray-600 mb-4">Format file ini tidak dapat ditampilkan langsung di pratinjau.</p>
+                                    <a href="<%= ticket.attachment_url %>" download class="px-4 py-2 bg-blue-600 text-white rounded-lg text-xs font-semibold">Unduh File Sekarang</a>
+                                </div>
+                            <% } %>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        <% } %>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        
+        <div class="md:col-span-1 bg-white rounded-2xl shadow-sm border border-gray-200 p-6 h-fit space-y-4" 
+             x-data="{ selectedStatus: '<%= ticket.status %>' }">
+            <h3 class="text-base font-bold text-gray-800">Aksi Penanganan</h3>
+            
+            <% 
+                let canManage = (user.role === 'superadmin') || (String(user.unit_id) === String(ticket.target_unit_id));
+                if (ticket.status === 'Closed') canManage = false;
+            %>
+
+            <% if (!canManage && ticket.status === 'Transferred') { %>
+                <!-- Jika sudah ditransfer dan bukan unit tujuannya lagi (unit lama yang salah) -->
+                <div class="p-4 bg-purple-50 border border-purple-200 rounded-xl space-y-2">
+                    <p class="text-xs font-semibold text-purple-800 uppercase">Tiket Telah Dialihkan</p>
+                    <p class="text-xs text-purple-700 leading-relaxed">
+                        Tiket ini telah ditransfer ke unit lain. Unit Anda sudah tidak memiliki akses untuk mengubah status.
+                    </p>
+                </div>
+            <% } else if (ticket.status === 'Closed') { %>
+                <div class="p-4 bg-gray-50 border border-gray-200 rounded-xl space-y-2">
+                    <p class="text-xs font-semibold text-gray-700 uppercase">Tiket Selesai (Closed)</p>
+                    <p class="text-xs text-gray-600 leading-relaxed">Tiket ini sudah ditutup dan berstatus final.</p>
+                </div>
+            <% } else { %>
+                <!-- Form aktif untuk unit tujuan yang benar -->
+                <form action="/tickets/<%= ticket.id %>/update" method="POST" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold uppercase text-gray-600 mb-1">
+                            Ubah Status (Saat Ini: <span class="font-bold text-purple-600"><%= ticket.status %></span>)
+                        </label>
+                        
+                        <select name="status" 
+                                x-model="selectedStatus" 
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none transition">
+                            
+                            <% if (ticket.status === 'Open') { %>
+                                <option value="Open" selected>Open (Aktif)</option>
+                                <option value="Process">Process (Diproses)</option>
+                            <% } else if (ticket.status === 'Process') { %>
+                                <option value="Process" selected>Process (Sedang Berjalan)</option>
+                                <option value="Resolved">Resolved (Selesai)</option>
+                                <option value="Closed" disabled>Closed (Harus melalui Resolved)</option>
+                            <% } else if (ticket.status === 'Resolved') { %>
+                                <option value="Resolved" selected>Resolved (Selesai)</option>
+                                <option value="Closed">Closed (Ditutup)</option>
+                            <% } else if (ticket.status === 'Transferred') { %>
+                                <!-- Opsi default saat tiket baru diterima dari transfer -->
+                                <option value="Transferred" selected>Transferred (Baru Diterima)</option>
+                                <option value="Process">Process (Mulai Diproses)</option>
+                            <% } %>
+
+                            <!-- Opsi untuk mentransfer ulang jika ternyata masih salah unit -->
+                            <% if (ticket.status !== 'Closed' && ticket.status !== 'Transferred') { %>
+                                <option value="Transferred">Transferred (Salah Unit / Eskalasi Lagi)</option>
+                            <% } %>
+                        </select>
+                    </div>
+
+                    <!-- PILIH UNIT TUJUAN BARU: Muncul jika memilih Transferred -->
+                    <div x-show="selectedStatus === 'Transferred' && selectedStatus !== '<%= ticket.status %>'" x-cloak class="space-y-1 transition-all duration-200">
+                        <label class="block text-xs font-semibold uppercase text-gray-600 mb-1">
+                            Eskalasi ke Unit Sebenarnya <span class="text-red-500">*</span>
+                        </label>
+                        <select name="new_target_unit_id" 
+                                :required="selectedStatus === 'Transferred' && selectedStatus !== '<%= ticket.status %>'"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none transition">
+                            <option value="">-- Pilih Unit Tujuan Baru --</option>
+                            <% if (typeof units !== 'undefined' && units.length > 0) { %>
+                                <% units.forEach(u => { %>
+                                    <% if (u.id !== ticket.creator_unit_id) { %>
+                                        <option value="<%= u.id %>">
+                                            <% if (user.role === 'superadmin') { %>
+                                                <%= u.branch_name %> - <%= u.name %>
+                                            <% } else { %>
+                                                <%= u.name %>
+                                            <% } %>
+                                        </option>
+                                    <% } %>
+                                <% }) %>
+                            <% } %>
+                        </select>
+                    </div>
+
+                    <!-- FORM INPUT CATATAN: Disembunyikan jika status masih 'Open' ATAU masih 'Transferred' awal -->
+                    <div x-show="selectedStatus !== 'Open' && selectedStatus !== 'Transferred'" x-cloak class="space-y-1 transition-all duration-200">
+                        <label class="block text-xs font-semibold uppercase text-gray-600 mb-1">
+                            Catatan / Pesan Progres <span class="text-red-500">*</span>
+                        </label>
+                        <textarea name="message" 
+                                  rows="3" 
+                                  :required="selectedStatus !== 'Open' && selectedStatus !== 'Transferred'"
+                                  placeholder="Tuliskan catatan penanganan..." 
+                                  class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none transition"></textarea>
+                    </div>
+
+                    <!-- Peringatan jika status masih Open atau Transferred awal -->
+                    <div x-show="selectedStatus === 'Open' || selectedStatus === 'Transferred'" class="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                        <p class="text-xs text-amber-700 font-medium leading-relaxed">
+                            ⚠️ Tiket berstatus <strong><%= ticket.status %></strong>. Ubah status ke <strong>Process</strong> terlebih dahulu untuk mulai memproses atau mencatat progres.
+                        </p>
+                    </div>
+
+                    <!-- TOMBOL SIMPAN: Disabled jika status masih Open atau Transferred awal -->
+                    <button type="submit" 
+                            :disabled="selectedStatus === 'Open' || selectedStatus === 'Transferred'"
+                            :class="(selectedStatus === 'Open' || selectedStatus === 'Transferred') ? 'bg-gray-200 cursor-not-allowed text-gray-400' : 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm'"
+                            class="w-full py-2.5 font-semibold rounded-lg text-sm transition">
+                        Simpan Perubahan
+                    </button>
+                </form>
+            <% } %>
+        </div>
+
+        <div class="md:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-200 p-6 space-y-4">
+            <h3 class="text-base font-bold text-gray-800">Riwayat & Histori Progres</h3>
+            <div class="space-y-4 border-l-2 border-gray-100 pl-4 ml-2">
+                <% logs.forEach(log => { %>
+                    <div class="relative space-y-1">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-gray-900"><%= log.actor_name %> <span class="text-gray-400 font-normal">(<%= log.actor_role %>)</span></span>
+                            <span class="text-xs text-gray-400"><%= new Date(log.created_at).toLocaleString('id-ID') %></span>
+                        </div>
+                        <div class="text-xs font-semibold text-blue-600">Aksi: <%= log.action %></div>
+                        <p class="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg border border-gray-100"><%= log.message %></p>
+                    </div>
+                <% }) %>
+            </div>
+        </div>
+
+    </div>
+</div>

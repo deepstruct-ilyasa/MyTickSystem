@@ -50,18 +50,29 @@ const initializeDatabase = async () => {
             );
         `);
 
-        // 5. Tabel Tiket & SLA
+        // 5. Tabel Master Kategori Tiket (Kosong, siap diisi via UI Admin)
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS ticket_categories (
+                id SERIAL PRIMARY KEY,
+                category VARCHAR(100) NOT NULL,
+                issue_description VARCHAR(255) NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+
+        // 6. Tabel Tiket & SLA (Sesuai form Cross-Unit terbaru)
         await client.query(`
             CREATE TABLE IF NOT EXISTS tickets (
                 id SERIAL PRIMARY KEY,
                 ticket_number VARCHAR(100) UNIQUE NOT NULL,
                 branch_id INTEGER REFERENCES branches(id) ON DELETE RESTRICT,
                 creator_id INTEGER REFERENCES users(id) ON DELETE RESTRICT,
-                assigned_unit_id INTEGER REFERENCES units(id) ON DELETE RESTRICT,
-                title VARCHAR(255) NOT NULL,
-                description TEXT,
+                target_unit_id INTEGER REFERENCES units(id) ON DELETE RESTRICT,
+                category VARCHAR(100) NOT NULL,
+                issue_description VARCHAR(255) NOT NULL,
+                description TEXT NOT NULL,
                 priority VARCHAR(50) NOT NULL,
-                status VARCHAR(50) NOT NULL,
+                status VARCHAR(50) DEFAULT 'Open',
                 attachment_url VARCHAR(255),
                 due_date TIMESTAMP,
                 resolved_at TIMESTAMP,
@@ -69,7 +80,7 @@ const initializeDatabase = async () => {
             );
         `);
 
-        // 6. Tabel Log Tiket (Eskalasi)
+        // 7. Tabel Log Tiket (Eskalasi)
         await client.query(`
             CREATE TABLE IF NOT EXISTS ticket_logs (
                 id SERIAL PRIMARY KEY,
@@ -82,7 +93,7 @@ const initializeDatabase = async () => {
             );
         `);
 
-        // 7. Tabel Sequence (Anti-bentrok penomoran tiket)
+        // 8. Tabel Sequence (Anti-bentrok penomoran tiket)
         await client.query(`
             CREATE TABLE IF NOT EXISTS ticket_sequences (
                 id SERIAL PRIMARY KEY,

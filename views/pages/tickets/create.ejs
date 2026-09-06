@@ -1,0 +1,188 @@
+<div class="max-w-4xl mx-auto py-6 px-4 sm:px-6 lg:px-8" x-data="ticketForm()">
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 md:p-8">
+        
+        <!-- Header Halaman -->
+        <div class="mb-8 border-b border-gray-100 pb-4">
+            <h1 class="text-2xl font-bold text-gray-800">Buat Tiket Baru</h1>
+            <p class="text-sm text-gray-500 mt-1">Laporkan kendala operasional Anda untuk segera ditindaklanjuti oleh unit terkait.</p>
+        </div>
+
+        <form action="/tickets/create" method="POST" enctype="multipart/form-data" class="space-y-6" id="ticketFormElement">
+            
+            <!-- Pencarian Cepat Global -->
+            <div class="relative bg-blue-50/50 p-4 rounded-xl border border-blue-100" @click.away="openQuickSearch = false">
+                <label class="block text-xs font-semibold uppercase text-blue-800 mb-1">Pencarian Cepat Kendala (Opsional)</label>
+                <p class="text-xs text-gray-500 mb-2">Ketik kata kunci untuk memilih kategori & detail secara instan.</p>
+                <div class="relative">
+                    <input type="text" 
+                           x-model="quickQuery" 
+                           @focus="openQuickSearch = true"
+                           @input="openQuickSearch = true"
+                           placeholder="Cepat cari kendala (misal: internet, lambat, printer)..." 
+                           class="w-full px-4 py-2.5 pl-9 border border-blue-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none transition shadow-sm">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-blue-400">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                    </span>
+                </div>
+
+                <!-- Dropdown Hasil Pencarian Cepat -->
+                <div x-show="openQuickSearch && quickResults.length > 0" x-cloak 
+                     class="absolute z-50 w-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-xl max-h-60 overflow-y-auto divide-y divide-gray-100">
+                    <template x-for="(item, index) in quickResults" :key="index">
+                        <div @click="selectQuickItem(item)" 
+                             class="px-4 py-2.5 hover:bg-blue-50 cursor-pointer transition text-sm">
+                            <div class="font-semibold text-blue-600 text-xs" x-text="item.category"></div>
+                            <div class="text-gray-700 font-medium text-xs mt-0.5" x-text="item.issue_description"></div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- Baris 1: Kategori & Deskripsi Kendala -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-gray-600 mb-2">Kategori Kendala <span class="text-red-500">*</span></label>
+                    <select id="select-category" name="category" required class="w-full">
+                        <option value="">-- Pilih Kategori --</option>
+                        <% 
+                            const uniqueCats = [...new Set(ticketCategories.map(item => item.category))];
+                            uniqueCats.forEach(cat => { 
+                        %>
+                            <option value="<%= cat %>"><%= cat %></option>
+                        <% }) %>
+                    </select>
+                </div>
+                
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-gray-600 mb-2">Deskripsi Kendala <span class="text-red-500">*</span></label>
+                    <select id="select-issue" name="issue_description" required class="w-full">
+                        <option value="">-- Pilih Detail Kendala --</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Baris 2: Unit Tujuan & Prioritas -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-gray-600 mb-2">Unit Tujuan <span class="text-red-500">*</span></label>
+                    <select id="select-unit" name="target_unit_id" required class="w-full">
+                        <option value="">-- Pilih Unit yang Dituju --</option>
+                        <% units.forEach(unit => { %>
+                            <option value="<%= unit.id %>"><%= unit.name %> (<%= unit.branch_name %>)</option>
+                        <% }) %>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-gray-600 mb-2">Prioritas <span class="text-red-500">*</span></label>
+                    <select id="select-priority" name="priority" required class="w-full">
+                        <option value="Low">Low (Bisa ditunda)</option>
+                        <option value="Medium" selected>Medium (Normal)</option>
+                        <option value="High">High (Penting, butuh cepat)</option>
+                        <option value="Urgent">Urgent (Kritis, sistem lumpuh)</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Baris 3: Detail Kendala (Textarea) -->
+            <div>
+                <label class="block text-xs font-semibold uppercase text-gray-600 mb-2">Detail Kendala / Pesan Lengkap <span class="text-red-500">*</span></label>
+                <textarea name="details" required rows="5" placeholder="Jelaskan terkait kendala yang dialami secara lengkap..." class="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none transition"></textarea>
+            </div>
+
+            <!-- Baris 4: Lampiran -->
+            <div>
+                <label class="block text-xs font-semibold uppercase text-gray-600 mb-2">Lampiran (Opsional)</label>
+                <input type="file" name="attachment" accept="image/*,.pdf" class="w-full text-sm text-gray-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer transition">
+                <p class="text-xs text-gray-400 mt-1.5">Maksimal 2MB. Format: JPG, PNG, atau PDF (File otomatis dinamai sesuai nomor tiket).</p>
+            </div>
+
+            <!-- Tombol Aksi -->
+            <div class="pt-6 border-t border-gray-100 flex items-center justify-end space-x-3">
+                <a href="/dashboard" class="px-5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-semibold transition">Batal</a>
+                <button type="submit" class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg text-sm shadow-sm transition">
+                    Buat Ticket
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Script Sinkronisasi Tom Select & Alpine.js -->
+<script>
+function ticketForm() {
+    return {
+        categoriesData: <%- JSON.stringify(ticketCategories || []) %>, 
+        quickQuery: '',
+        openQuickSearch: false,
+        categoryControl: null,
+        issueControl: null,
+
+        get quickResults() {
+            if (!this.quickQuery || this.quickQuery.trim() === '') return [];
+            const query = this.quickQuery.toLowerCase();
+            return this.categoriesData.filter(item => 
+                item.category.toLowerCase().includes(query) || 
+                item.issue_description.toLowerCase().includes(query)
+            );
+        },
+
+        selectQuickItem(item) {
+            this.categoryControl.setValue(item.category);
+            this.updateIssueOptions(item.category);
+            this.issueControl.setValue(item.issue_description);
+            
+            // Kosongkan kotak pencarian cepat setelah dipilih
+            this.quickQuery = '';
+            this.openQuickSearch = false;
+        },
+
+        init() {
+            // 1. Inisialisasi Tom Select Kategori
+            this.categoryControl = new TomSelect("#select-category", {
+                create: false,
+                sortField: {field: "text", direction: "asc"},
+                onChange: (value) => {
+                    this.updateIssueOptions(value);
+                }
+            });
+
+            // 2. Inisialisasi Tom Select Deskripsi Kendala
+            this.issueControl = new TomSelect("#select-issue", {
+                create: false,
+                sortField: {field: "text", direction: "asc"}
+            });
+
+            // Nonaktifkan detail kendala di awal
+            this.issueControl.disable();
+
+            // 3. Inisialisasi Tom Select Unit & Prioritas
+            new TomSelect("#select-unit", { create: false, sortField: {field: "text", direction: "asc"} });
+            new TomSelect("#select-priority", { create: false });
+        },
+
+        updateIssueOptions(category) {
+            this.issueControl.clear();
+            this.issueControl.clearOptions();
+
+            if (!category) {
+                this.issueControl.disable();
+                return;
+            }
+
+            this.issueControl.enable();
+            
+            const issues = this.categoriesData
+                .filter(item => item.category === category)
+                .map(item => item.issue_description);
+            
+            const uniqueIssues = [...new Set(issues)];
+            
+            uniqueIssues.forEach(issue => {
+                this.issueControl.addOption({ value: issue, text: issue });
+            });
+            this.issueControl.refreshOptions(false);
+        }
+    }
+}
+</script>

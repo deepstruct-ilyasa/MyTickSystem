@@ -16,6 +16,7 @@ const branchRoutes = require('./routes/branchRoutes');
 const unitRoutes = require('./routes/unitRoutes');
 const userRoutes = require('./routes/userRoutes');
 const profileRoutes = require('./routes/profileRoutes');
+const ticketRoutes = require('./routes/ticketRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -60,6 +61,7 @@ app.use('/branches', branchRoutes);
 app.use('/units', unitRoutes);
 app.use('/users', userRoutes);
 app.use('/profile', profileRoutes);
+app.use('/tickets', ticketRoutes);
 
 
 app.get('/', isAuthenticated, (req, res) => {

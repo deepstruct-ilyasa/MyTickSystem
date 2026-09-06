@@ -1,0 +1,170 @@
+<div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8" x-data="{ activeTab: 'inbox', search: '' }">
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+        
+        <!-- Header Halaman & Tab Switcher -->
+        <div class="p-6 md:p-8 border-b border-gray-100 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-800">Manajemen Tiket</h1>
+                <p class="text-sm text-gray-500 mt-1">Kelola tiket masuk tugas unit Anda dan pantau tiket keluar yang Anda ajukan.</p>
+            </div>
+            
+            <div class="flex items-center space-x-3">
+                <!-- Tab Switcher -->
+                <div class="inline-flex bg-gray-100 p-1 rounded-xl border border-gray-200">
+                    <button @click="activeTab = 'inbox'" 
+                            :class="activeTab === 'inbox' ? 'bg-white text-blue-600 shadow-sm font-semibold' : 'text-gray-600 hover:text-gray-900 font-medium'"
+                            class="px-4 py-2 rounded-lg text-xs transition">
+                        📥 Tiket Masuk (<%= inboxTickets.length %>)
+                    </button>
+                    <button @click="activeTab = 'outbox'" 
+                            :class="activeTab === 'outbox' ? 'bg-white text-blue-600 shadow-sm font-semibold' : 'text-gray-600 hover:text-gray-900 font-medium'"
+                            class="px-4 py-2 rounded-lg text-xs transition">
+                        📤 Tiket Keluar (<%= outboxTickets.length %>)
+                    </button>
+                </div>
+
+                <a href="/tickets/create" class="inline-flex items-center justify-center px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg text-sm shadow-sm transition">
+                    + Buat Tiket
+                </a>
+            </div>
+        </div>
+
+        <!-- Filter Pencarian -->
+        <div class="p-6 bg-gray-50/50 border-b border-gray-100 flex items-center justify-between">
+            <div class="w-full sm:w-80">
+                <input type="text" x-model="search" placeholder="Cari nomor tiket / kategori..." class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none transition">
+            </div>
+        </div>
+
+        <!-- ================= TAB 1: TIKET MASUK (INBOX) ================= -->
+        <div x-show="activeTab === 'inbox'" class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-gray-50 text-gray-600 uppercase text-xs font-semibold tracking-wider border-b border-gray-200">
+                        <th class="py-3.5 px-6">No. Tiket</th>
+                        <th class="py-3.5 px-6"><%= user.role === 'superadmin' ? 'Pelapor / Cabang' : 'Pelapor' %></th>
+                        <th class="py-3.5 px-6">Kategori</th>
+                        <th class="py-3.5 px-6">Kendala</th>
+                        <th class="py-3.5 px-6">Tujuan Unit</th>
+                        <th class="py-3.5 px-6">Prioritas</th>
+                        <th class="py-3.5 px-6">Status</th>
+                        <th class="py-3.5 px-6 text-center">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 text-sm text-gray-700">
+                    <% if (inboxTickets.length === 0) { %>
+                        <tr>
+                            <td colspan="8" class="py-12 text-center text-gray-400">Tidak ada tiket masuk saat ini.</td>
+                        </tr>
+                    <% } else { %>
+                        <% inboxTickets.forEach(ticket => { %>
+                            <tr class="hover:bg-gray-50/50 transition">
+                                <td class="py-4 px-6 font-semibold text-blue-600">
+                                    <%= ticket.ticket_number %>
+                                    <div class="text-xs font-normal text-gray-400 mt-0.5">
+                                        <%= new Date(ticket.created_at).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) %>
+                                    </div>
+                                </td>
+                                <td class="py-4 px-6">
+                                    <div class="font-medium text-gray-900"><%= ticket.creator_name %></div>
+                                    <% if (user.role === 'superadmin') { %>
+                                        <div class="text-xs text-gray-500"><%= ticket.branch_name %></div>
+                                    <% } %>
+                                </td>
+                                <td class="py-4 px-6">
+                                    <div class="font-medium text-gray-900"><%= ticket.category %></div>
+                                </td>
+                                <td class="py-4 px-6">
+                                    <div class="text-xs text-gray-500 truncate max-w-xs"><%= ticket.issue_description %></div>
+                                </td>
+                                <td class="py-4 px-6 font-medium text-gray-600"><%= ticket.target_unit_name %></td>
+                                <td class="py-4 px-6">
+                                    <% 
+                                        let pColor = 'bg-gray-100 text-gray-700';
+                                        if(ticket.priority === 'High') pColor = 'bg-orange-100 text-orange-700';
+                                        if(ticket.priority === 'Urgent') pColor = 'bg-red-100 text-red-700';
+                                        if(ticket.priority === 'Medium') pColor = 'bg-blue-100 text-blue-700';
+                                    %>
+                                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold <%= pColor %>"><%= ticket.priority %></span>
+                                </td>
+                                <td class="py-4 px-6">
+                                    <% 
+                                        let sColor = 'bg-yellow-100 text-yellow-800';
+                                        if(ticket.status === 'Process') sColor = 'bg-blue-100 text-blue-800';
+                                        if(ticket.status === 'Resolved') sColor = 'bg-green-100 text-green-800';
+                                        if(ticket.status === 'Closed') sColor = 'bg-gray-200 text-gray-800';
+                                    %>
+                                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold <%= sColor %>"><%= ticket.status %></span>
+                                </td>
+                                <td class="py-4 px-6 text-center">
+                                    <a href="/tickets/<%= ticket.id %>" class="inline-flex items-center px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-semibold transition">Proses</a>
+                                </td>
+                            </tr>
+                        <% }) %>
+                    <% } %>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- ================= TAB 2: TIKET KELUAR (OUTBOX) ================= -->
+        <div x-show="activeTab === 'outbox'" x-cloak class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-gray-50 text-gray-600 uppercase text-xs font-semibold tracking-wider border-b border-gray-200">
+                        <th class="py-3.5 px-6">No. Tiket</th>
+                        <th class="py-3.5 px-6">Kategori & Kendala</th>
+                        <th class="py-3.5 px-6">Tujuan Unit</th>
+                        <th class="py-3.5 px-6">Prioritas</th>
+                        <th class="py-3.5 px-6">Status</th>
+                        <th class="py-3.5 px-6 text-center">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 text-sm text-gray-700">
+                    <% if (outboxTickets.length === 0) { %>
+                        <tr>
+                            <td colspan="6" class="py-12 text-center text-gray-400">Anda belum pernah membuat tiket.</td>
+                        </tr>
+                    <% } else { %>
+                        <% outboxTickets.forEach(ticket => { %>
+                            <tr class="hover:bg-gray-50/50 transition">
+                                <td class="py-4 px-6 font-semibold text-blue-600">
+                                    <%= ticket.ticket_number %>
+                                    <div class="text-xs font-normal text-gray-400 mt-0.5">
+                                        <%= new Date(ticket.created_at).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) %>
+                                    </div>
+                                </td>
+                                <td class="py-4 px-6">
+                                    <div class="font-medium text-gray-900"><%= ticket.category %></div>
+                                    <div class="text-xs text-gray-500 truncate max-w-xs"><%= ticket.issue_description %></div>
+                                </td>
+                                <td class="py-4 px-6 font-medium text-gray-600"><%= ticket.target_unit_name %></td>
+                                <td class="py-4 px-6">
+                                    <% 
+                                        let pColor = 'bg-gray-100 text-gray-700';
+                                        if(ticket.priority === 'High') pColor = 'bg-orange-100 text-orange-700';
+                                        if(ticket.priority === 'Urgent') pColor = 'bg-red-100 text-red-700';
+                                        if(ticket.priority === 'Medium') pColor = 'bg-blue-100 text-blue-700';
+                                    %>
+                                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold <%= pColor %>"><%= ticket.priority %></span>
+                                </td>
+                                <td class="py-4 px-6">
+                                    <% 
+                                        let sColor = 'bg-yellow-100 text-yellow-800';
+                                        if(ticket.status === 'Process') sColor = 'bg-blue-100 text-blue-800';
+                                        if(ticket.status === 'Resolved') sColor = 'bg-green-100 text-green-800';
+                                        if(ticket.status === 'Closed') sColor = 'bg-gray-200 text-gray-800';
+                                    %>
+                                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold <%= sColor %>"><%= ticket.status %></span>
+                                </td>
+                                <td class="py-4 px-6 text-center">
+                                    <a href="/tickets/<%= ticket.id %>" class="inline-flex items-center px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-semibold transition">Detail</a>
+                                </td>
+                            </tr>
+                        <% }) %>
+                    <% } %>
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+</div>
