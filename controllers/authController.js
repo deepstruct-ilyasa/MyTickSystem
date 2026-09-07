@@ -15,9 +15,9 @@ exports.processLogin = async (req, res) => {
     const { nip, password } = req.body;
 
     try {
-        // Cari user berdasarkan NIP
+        // Ambil b.branch_code dari tabel branches
         const query = `
-            SELECT u.*, b.name as branch_name, un.name as unit_name 
+            SELECT u.*, b.name as branch_name, b.branch_code as branch_code, un.name as unit_name 
             FROM users u
             LEFT JOIN branches b ON u.branch_id = b.id
             LEFT JOIN units un ON u.unit_id = un.id
@@ -31,22 +31,23 @@ exports.processLogin = async (req, res) => {
 
         const user = rows[0];
 
-        // Cocokan password dengan hash bcrypt
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
             return res.render('pages/login', { error: 'Password salah!' });
         }
 
-        // Simpan data penting ke dalam session
+        // Simpan data ke dalam session termasuk branch_code yang asli
         req.session.user = {
             id: user.id,
             nip: user.nip,
             name: user.name,
             role: user.role,
             branch_id: user.branch_id,
+            branch_code: user.branch_code || 'HQ', // Mengambil branch_code asli dari database
             unit_id: user.unit_id,
-            branch_name: user.branch_name,
-            unit_name: user.unit_name
+            branch_name: user.branch_name || 'Pusat',
+            unit_name: user.unit_name || 'Manajemen',
+            profile_picture: user.profile_picture
         };
 
         console.log(`[LOGIN SUCCESS] User ${user.name} (${user.role}) berhasil masuk.`);

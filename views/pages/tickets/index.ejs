@@ -65,10 +65,14 @@
                                         <%= new Date(ticket.created_at).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) %>
                                     </div>
                                 </td>
-                                <td class="py-4 px-6">
-                                    <div class="font-medium text-gray-900"><%= ticket.creator_name %></div>
+                                <td class="py-3 px-4">
+                                    <div class="font-bold text-gray-900"><%= ticket.creator_name %></div>
+                                    <!-- Menampilkan Nama Unit di bawah nama pelapor, alih-alih cabang -->
+                                    <div class="text-xs text-gray-500"><%= ticket.creator_unit_name || '-' %></div>
+                                    
+                                    <!-- Jika Superadmin, opsional boleh tampilkan nama cabang kecil di bawahnya atau diabaikan -->
                                     <% if (user.role === 'superadmin') { %>
-                                        <div class="text-xs text-gray-500"><%= ticket.branch_name %></div>
+                                        <div class="text-[10px] text-purple-600 font-semibold"><%= ticket.branch_name %></div>
                                     <% } %>
                                 </td>
                                 <td class="py-4 px-6">

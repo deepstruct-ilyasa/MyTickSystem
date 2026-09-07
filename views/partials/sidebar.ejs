@@ -1,71 +1,93 @@
 <aside :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full'" 
-    class="fixed inset-y-0 left-0 z-50 w-72 bg-slate-900 text-white transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-auto flex flex-col h-full">
+    x-cloak
+    class="fixed inset-y-0 left-0 z-50 w-full sm:w-80 bg-slate-900 text-white transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-auto flex flex-col h-full -translate-x-full lg:translate-x-0 shadow-2xl lg:shadow-none">
     
     <!-- Logo / Brand -->
-    <div class="flex items-center justify-between h-16 px-6 bg-slate-950 shrink-0">
-        <span class="text-xl font-bold tracking-wider">MyTick<span class="text-blue-500">System</span></span>
-        <!-- Tombol Close untuk Mobile -->
-        <button @click="sidebarOpen = false" class="lg:hidden text-gray-400 hover:text-white">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <div class="flex items-center justify-between h-20 px-6 bg-slate-950 shrink-0 border-b border-slate-800">
+        <div class="flex items-center space-x-3.5">
+            <img src="logo.png" alt="MyTickSystem Logo" class="w-10 h-10 object-contain">
+            
+            <div class="flex flex-col">
+                <span class="text-xl font-bold tracking-wider text-white">MyTick<span class="text-blue-500">System</span></span>
+                <span class="text-[10px] text-gray-400 font-medium tracking-wide uppercase">Management Ticketing Platform</span>
+            </div>
+        </div>
+
+        <button @click="sidebarOpen = false" class="lg:hidden text-gray-300 hover:text-white p-2 rounded-lg hover:bg-slate-800 transition">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
             </svg>
         </button>
     </div>
 
-    <!-- Navigation Menu (flex-1 dan overflow-y-auto agar bisa di-scroll jika menu banyak) -->
-    <nav class="p-4 space-y-1.5 text-sm flex-1 overflow-y-auto">
-        <a href="/dashboard" class="flex items-center px-4 py-2.5 rounded-lg hover:bg-slate-800 text-gray-300 hover:text-white transition">
-            <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
+    <!-- Navigation Menu -->
+    <nav class="p-5 space-y-2 text-base flex-1 overflow-y-auto">
+        <a href="/dashboard" class="flex items-center px-4 py-3 rounded-xl hover:bg-slate-800 text-gray-200 hover:text-white font-medium transition">
+            <svg class="w-6 h-6 mr-3 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
             Dashboard
         </a>
 
-        <!-- Menu Manajemen Cabang (Hanya Superadmin & Admin Cabang) -->
+        <!-- Menu Manajemen Cabang -->
         <% if (['superadmin', 'admin_cabang'].includes(user.role)) { %>
-            <a href="/branches" class="flex items-center px-4 py-2.5 rounded-lg hover:bg-slate-800 text-gray-300 hover:text-white transition">
-                <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+            <a href="/branches" class="flex items-center px-4 py-3 rounded-xl hover:bg-slate-800 text-gray-200 hover:text-white font-medium transition">
+                <svg class="w-6 h-6 mr-3 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
                 Manajemen Cabang
             </a>
-            <a href="/units" class="flex items-center px-4 py-2.5 rounded-lg hover:bg-slate-800 text-gray-300 hover:text-white transition">
-                <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+            <a href="/units" class="flex items-center px-4 py-3 rounded-xl hover:bg-slate-800 text-gray-200 hover:text-white font-medium transition">
+                <svg class="w-6 h-6 mr-3 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
                 Manajemen Unit
             </a>
         <% } %>
 
-        <!-- Menu Manajemen User (Kecuali Staf) -->
+        <!-- Menu Manajemen User -->
         <% if (user.role !== 'staf') { %>
-            <a href="/users" class="flex items-center px-4 py-2.5 rounded-lg hover:bg-slate-800 text-gray-300 hover:text-white transition">
-                <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+            <a href="/users" class="flex items-center px-4 py-3 rounded-xl hover:bg-slate-800 text-gray-200 hover:text-white font-medium transition">
+                <svg class="w-6 h-6 mr-3 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
                 Manajemen User
             </a>
         <% } %>
 
         <!-- Menu Utama Tiket dengan Dropdown (Collapsible) -->
-        <div x-data="{ openTickets: false }" class="space-y-1 pt-1">
+        <div x-data="{ openTickets: false }" class="space-y-1.5 pt-1">
             <button @click="openTickets = !openTickets" 
-                    class="w-full flex items-center justify-between px-4 py-2.5 rounded-lg text-gray-300 hover:bg-slate-800 hover:text-white transition text-sm font-medium">
+                    class="w-full flex items-center justify-between px-4 py-3 rounded-xl text-gray-200 hover:bg-slate-800 hover:text-white transition font-medium">
                 <div class="flex items-center">
-                    <svg class="w-5 h-5 mr-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg class="w-6 h-6 mr-3 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z"></path>
                     </svg>
                     <span>Manajemen Tiket</span>
                 </div>
-                <svg class="w-4 h-4 transition-transform duration-200" :class="openTickets ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="w-5 h-5 transition-transform duration-200" :class="openTickets ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                 </svg>
             </button>
 
             <!-- Sub-Menu Tiket -->
-            <div x-show="openTickets" x-cloak class="pl-11 space-y-1 py-1">
-                <a href="/tickets/create" class="block px-3 py-2 rounded-lg text-xs font-medium text-gray-400 hover:bg-slate-800 hover:text-white transition">
-                    + Buat Tiket Baru
+            <div x-show="openTickets" x-cloak class="pl-6 space-y-1.5 py-1">
+                
+                <!-- Buat Tiket Baru -->
+                <a href="/tickets/create" class="flex items-center px-3 py-2.5 rounded-lg text-sm font-medium text-gray-300 hover:bg-slate-800 hover:text-white transition">
+                    <svg class="w-4 h-4 mr-3 text-blue-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <span>Buat Tiket Baru</span>
                 </a>
-                <a href="/tickets" class="block px-3 py-2 rounded-lg text-xs font-medium text-gray-400 hover:bg-slate-800 hover:text-white transition">
-                    Daftar Tiket
+
+                <!-- Daftar Tiket -->
+                <a href="/tickets" class="flex items-center px-3 py-2.5 rounded-lg text-sm font-medium text-gray-300 hover:bg-slate-800 hover:text-white transition">
+                    <svg class="w-4 h-4 mr-3 text-amber-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
+                    </svg>
+                    <span>Daftar Tiket</span>
                 </a>
-                <!-- Menu Master Kategori untuk admin input manual -->
-                <% if (['superadmin', 'admin_cabang'].includes(user.role)) { %>
-                    <a href="/tickets/categories" class="block px-3 py-2 rounded-lg text-xs font-medium text-gray-400 hover:bg-slate-800 hover:text-white transition">
-                        Master Kategori
+
+                <!-- Master Kategori -->
+                <% if (['superadmin', 'admin_cabang', 'manager', 'supervisor'].includes(user.role)) { %>
+                    <a href="/tickets/categories" class="flex items-center px-3 py-2.5 rounded-lg text-sm font-medium text-gray-300 hover:bg-slate-800 hover:text-white transition">
+                        <svg class="w-4 h-4 mr-3 text-purple-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
+                        </svg>
+                        <span>Master Kategori</span>
                     </a>
                 <% } %>
             </div>

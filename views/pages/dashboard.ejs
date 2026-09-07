@@ -1,27 +1,443 @@
-<div class="space-y-6">
-    <!-- Welcome Banner -->
-    <div class="bg-blue-600 text-white p-6 rounded-2xl shadow-md">
-        <h1 class="text-2xl font-bold">Selamat Datang Kembali, <%= user.name %>! 👋</h1>
-        <p class="text-blue-100 text-sm mt-1">Sistem siap beroperasi. Anda masuk sebagai <strong class="uppercase"><%= user.role %></strong> di unit <%= user.unit_name || '-' %>.</p>
+<div class="w-full py-6 px-6 lg:px-8 space-y-6" x-data="{ filterModalOpen: false }">
+    
+    <!-- Header Sambutan & Tombol Filter Popup & Buat Tiket -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div>
+            <span class="text-xs font-semibold uppercase tracking-wider text-blue-600 bg-blue-50 px-3 py-1 rounded-full">Sistem Informasi Ticketing</span>
+            <h1 class="text-2xl font-bold text-gray-900 mt-2">Selamat Datang, <%= user.name %>! 👋</h1>
+        </div>
+
+        <div class="flex items-center gap-3 w-full md:w-auto justify-end">
+            <% if (user.role === 'superadmin' || user.role === 'admin_cabang' || user.role === 'manager' || user.role === 'supervisor') { %>
+                <button type="button" @click="filterModalOpen = true" class="inline-flex items-center px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-sm font-semibold transition shadow-sm">
+                    <svg class="w-5 h-5 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707v4.172a1 1 0 01-.553.894l-4 2A1 1 0 017 19.172v-7.172a1 1 0 00-.293-.707L.293 7.293A1 1 0 010 6.586V4z"></path></svg>
+                    Filter
+                    <span id="activeFilterBadge" class="ml-2 px-2 py-0.5 bg-blue-600 text-white text-xs rounded-full hidden">Aktif</span>
+                </button>
+            <% } %>
+        </div>
     </div>
 
-    <!-- Dashboard Widget Grid Dinamis -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-            <p class="text-sm font-medium text-gray-500">Total Tiket Masuk</p>
-            <h3 class="text-3xl font-bold text-gray-800 mt-2">0</h3>
+    <!-- TAB NAVIGASI: INBOX VS OUTBOX -->
+    <div class="flex items-center justify-center md:justify-start space-x-3">
+        <button type="button" id="tabInbox" onclick="switchTab('inbox')" class="px-5 py-2.5 rounded-xl text-sm font-semibold transition <%= filters.tab !== 'outbox' ? 'bg-blue-600 text-white shadow-sm' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50' %>">
+            📥 Tiket Masuk
+        </button>
+        <button type="button" id="tabOutbox" onclick="switchTab('outbox')" class="px-5 py-2.5 rounded-xl text-sm font-semibold transition <%= filters.tab === 'outbox' ? 'bg-blue-600 text-white shadow-sm' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50' %>">
+            📤 Tiket Keluar
+        </button>
+    </div>
+
+    <!-- MODAL / POPUP FILTER LANJUTAN (Alpine.js x-show) -->
+    <div x-show="filterModalOpen" class="fixed inset-0 z-50 overflow-y-auto bg-gray-900/50 backdrop-blur-xs flex items-center justify-center p-4" style="display: none;" x-cloak>
+        <div @click.away="filterModalOpen = false" class="bg-white rounded-3xl shadow-xl border border-gray-100 max-w-lg w-full p-6 md:p-8 space-y-6 transform transition-all">
+            
+            <div class="flex items-center justify-between border-b border-gray-100 pb-4">
+                <h3 class="text-lg font-bold text-gray-900 flex items-center">
+                    <svg class="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707v4.172a1 1 0 01-.553.894l-4 2A1 1 0 017 19.172v-7.172a1 1 0 00-.293-.707L.293 7.293A1 1 0 010 6.586V4z"></path></svg>
+                    Filter Data
+                </h3>
+                <button type="button" @click="filterModalOpen = false" class="p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+
+            <form method="GET" action="/dashboard" class="space-y-4" id="filterForm" onsubmit="return false;">
+                <input type="hidden" name="tab" id="activeTabInput" value="<%= filters.tab || 'inbox' %>">
+                
+                <div class="space-y-4">
+                    <!-- 1. Filter Cabang (Hanya Superadmin) -->
+                    <% if (user.role === 'superadmin') { %>
+                        <div>
+                            <label class="block text-xs font-semibold uppercase text-gray-600 mb-1">Pilih Cabang</label>
+                            <select name="branch_id" id="branchSelect" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                                <option value="all">-- Semua Cabang --</option>
+                                <% branches.forEach(b => { %>
+                                    <option value="<%= b.id %>" <%= filters.branch_id == b.id ? 'selected' : '' %>><%= b.name %></option>
+                                <% }) %>
+                            </select>
+                        </div>
+                    <% } %>
+
+                    <!-- 2. Filter Manager / Divisi (Superadmin & Admin Cabang) -->
+                    <% if (user.role === 'superadmin' || user.role === 'admin_cabang') { %>
+                        <div>
+                            <label class="block text-xs font-semibold uppercase text-gray-600 mb-1">
+                                Management Devisi
+                            </label>
+                            <select name="manager_id" id="managerSelect" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                                <option value="all">-- Semua Management --</option>
+                                <% managers.forEach(m => { %>
+                                    <option value="<%= m.id %>" <%= filters.manager_id == m.id ? 'selected' : '' %>><%= m.name %></option>
+                                <% }) %>
+                            </select>
+                        </div>
+                    <% } %>
+
+                    <!-- 3. Filter Unit Spesifik -->
+                    <% if (user.role === 'superadmin' || user.role === 'admin_cabang' || user.role === 'manager') { %>
+                        <div>
+                            <label class="block text-xs font-semibold uppercase text-gray-600 mb-1">Unit</label>
+                            <select name="unit_id" id="unitSelect" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                                <option value="all">-- Semua Unit --</option>
+                                <% units.forEach(u => { %>
+                                    <option value="<%= u.id %>" <%= filters.unit_id == u.id ? 'selected' : '' %>><%= u.name %></option>
+                                <% }) %>
+                            </select>
+                        </div>
+                    <% } %>
+
+                    <!-- 4. Filter User / Staf Spesifik -->
+                    <div>
+                        <label class="block text-xs font-semibold uppercase text-gray-600 mb-1">Staf</label>
+                        <select name="user_id" id="userSelect" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                            <option value="all">-- Semua Staf --</option>
+                            <% usersList.forEach(usr => { %>
+                                <option value="<%= usr.id %>" <%= filters.user_id == usr.id ? 'selected' : '' %>><%= usr.name %></option>
+                            <% }) %>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between pt-4 border-t border-gray-100">
+                    <a href="/dashboard?tab=<%= filters.tab || 'inbox' %>" class="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl text-xs font-semibold transition">
+                        Reset Filter
+                    </a>
+                    <button type="button" @click="filterModalOpen = false" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold shadow-sm transition">
+                        Terapkan & Tutup
+                    </button>
+                </div>
+            </form>
         </div>
-        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-            <p class="text-sm font-medium text-gray-500">Tiket Open / Pending</p>
-            <h3 class="text-3xl font-bold text-amber-600 mt-2">0</h3>
+    </div>
+
+    <!-- Statistik Grid -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        
+        <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 flex items-center space-x-4">
+            <div class="p-3 bg-blue-50 text-blue-600 rounded-xl">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path></svg>
+            </div>
+            <div>
+                <p class="text-xs font-semibold uppercase text-gray-400">Total Tiket</p>
+                <h3 class="text-2xl font-bold text-gray-900 mt-1" id="statTotal"><%= stats.total_inbox %></h3>
+            </div>
         </div>
-        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-            <p class="text-sm font-medium text-gray-500">Sedang Dikerjakan (In-Progress)</p>
-            <h3 class="text-3xl font-bold text-blue-600 mt-2">0</h3>
+
+        <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 flex items-center space-x-4">
+            <div class="p-3 bg-yellow-50 text-yellow-600 rounded-xl">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            </div>
+            <div>
+                <p class="text-xs font-semibold uppercase text-gray-400">Open</p>
+                <h3 class="text-2xl font-bold text-gray-900 mt-1" id="statOpen"><%= stats.total_open %></h3>
+            </div>
         </div>
-        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-            <p class="text-sm font-medium text-gray-500">Tiket Selesai (Resolved)</p>
-            <h3 class="text-3xl font-bold text-emerald-600 mt-2">0</h3>
+
+        <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 flex items-center space-x-4">
+            <div class="p-3 bg-blue-50 text-blue-600 rounded-xl">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+            </div>
+            <div>
+                <p class="text-xs font-semibold uppercase text-gray-400">Inprogress</p>
+                <h3 class="text-2xl font-bold text-gray-900 mt-1" id="statProcess"><%= stats.total_process %></h3>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 flex items-center space-x-4">
+            <div class="p-3 bg-green-50 text-green-600 rounded-xl">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+            </div>
+            <div>
+                <p class="text-xs font-semibold uppercase text-gray-400">Resolved</p>
+                <h3 class="text-2xl font-bold text-gray-900 mt-1" id="statResolved"><%= stats.total_resolved %></h3>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 flex items-center space-x-4">
+            <div class="p-3 bg-gray-100 text-gray-600 rounded-xl">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+            </div>
+            <div>
+                <p class="text-xs font-semibold uppercase text-gray-400">Closed</p>
+                <h3 class="text-2xl font-bold text-gray-900 mt-1" id="statClosed"><%= stats.total_closed %></h3>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Tabel Tiket Terbaru -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+        <div class="p-6 md:p-8 border-b border-gray-100 flex items-center justify-between">
+            <h3 class="text-base font-bold text-gray-800">Daftar Tiket Terbaru (<span id="tableTitle"><%= filters.tab === 'outbox' ? 'Outbox' : 'Inbox' %></span>)</h3>
+            <a href="/tickets" class="text-xs font-semibold text-blue-600 hover:underline">Lihat Semua Tiket &rarr;</a>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-gray-50 text-gray-600 uppercase text-xs font-semibold tracking-wider border-b border-gray-200">
+                        <th class="py-3.5 px-6">No. Tiket</th>
+                        <th class="py-3.5 px-6"><%= user.role === 'superadmin' ? 'Pelapor / Cabang' : 'Pelapor' %></th>
+                        <th class="py-3.5 px-6">Kategori</th>
+                        <th class="py-3.5 px-6">Kendala</th>
+                        <th class="py-3.5 px-6">Tujuan Unit</th>
+                        <th class="py-3.5 px-6">Prioritas</th>
+                        <th class="py-3.5 px-6">Status</th>
+                        <th class="py-3.5 px-6 text-center">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 text-sm text-gray-700" id="ticketTableBody">
+                    <% if (recentTickets.length > 0) { %>
+                        <% recentTickets.forEach(ticket => { %>
+                            <tr class="hover:bg-gray-50/50 transition">
+                                <td class="py-4 px-6 font-semibold text-blue-600">
+                                    <%= ticket.ticket_number %>
+                                    <div class="text-xs font-normal text-gray-400 mt-0.5">
+                                        <%= new Date(ticket.created_at).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) %>
+                                    </div>
+                                </td>
+                                <td class="py-3 px-4">
+                                    <div class="font-bold text-gray-900"><%= ticket.creator_name %></div>
+                                    <div class="text-xs text-gray-500"><%= ticket.creator_unit_name || 'Unit Umum' %></div>
+                                    <% if (user.role === 'superadmin') { %>
+                                        <div class="text-[10px] text-purple-600 font-semibold"><%= ticket.branch_name %></div>
+                                    <% } %>
+                                </td>
+                                <td class="py-4 px-6">
+                                    <div class="font-medium text-gray-900"><%= ticket.category %></div>
+                                </td>
+                                <td class="py-4 px-6">
+                                    <div class="text-xs text-gray-500 truncate max-w-xs"><%= ticket.issue_description %></div>
+                                </td>
+                                <td class="py-4 px-6 font-medium text-gray-600"><%= ticket.target_unit_name || '-' %></td>
+                                <td class="py-4 px-6">
+                                    <% 
+                                        let pColor = 'bg-gray-100 text-gray-700';
+                                        if(ticket.priority === 'High') pColor = 'bg-orange-100 text-orange-700';
+                                        if(ticket.priority === 'Urgent') pColor = 'bg-red-100 text-red-700';
+                                        if(ticket.priority === 'Medium') pColor = 'bg-blue-100 text-blue-700';
+                                    %>
+                                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold <%= pColor %>"><%= ticket.priority %></span>
+                                </td>
+                                <td class="py-4 px-6">
+                                    <% 
+                                        let sColor = 'bg-yellow-100 text-yellow-800';
+                                        if(ticket.status === 'Process') sColor = 'bg-blue-100 text-blue-800';
+                                        if(ticket.status === 'Resolved') sColor = 'bg-green-100 text-green-800';
+                                        if(ticket.status === 'Closed') sColor = 'bg-gray-200 text-gray-800';
+                                        if(ticket.status === 'Transferred') sColor = 'bg-purple-100 text-purple-800';
+                                    %>
+                                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold <%= sColor %>"><%= ticket.status %></span>
+                                </td>
+                                <td class="py-4 px-6 text-center">
+                                    <a href="/tickets/<%= ticket.id %>" class="inline-flex items-center px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-semibold transition">Respons</a>
+                                </td>
+                            </tr>
+                        <% }) %>
+                    <% } else { %>
+                        <tr>
+                            <td colspan="8" class="py-12 text-center text-gray-400 text-sm">Belum ada tiket yang sesuai dengan filter saat ini.</td>
+                        </tr>
+                    <% } %>
+                </tbody>
+            </table>
         </div>
     </div>
 </div>
+
+<!-- Script AJAX Live Update & Badge Aktif -->
+<script>
+    const currentUserRole = '<%= user.role %>';
+
+    function updateFilterBadge() {
+        const branchSelect = document.getElementById('branchSelect');
+        const managerSelect = document.getElementById('managerSelect');
+        const unitSelect = document.getElementById('unitSelect');
+        const userSelect = document.getElementById('userSelect');
+        const badge = document.getElementById('activeFilterBadge');
+
+        let isFiltered = false;
+        if (branchSelect && branchSelect.value !== 'all') isFiltered = true;
+        if (managerSelect && managerSelect.value !== 'all') isFiltered = true;
+        if (unitSelect && unitSelect.value !== 'all') isFiltered = true;
+        if (userSelect && userSelect.value !== 'all') isFiltered = true;
+
+        if (badge) {
+            if (isFiltered) {
+                badge.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
+            }
+        }
+    }
+
+    function switchTab(tabName) {
+        const activeTabInput = document.getElementById('activeTabInput');
+        if (activeTabInput) activeTabInput.value = tabName;
+
+        const btnInbox = document.getElementById('tabInbox');
+        const btnOutbox = document.getElementById('tabOutbox');
+        const tableTitle = document.getElementById('tableTitle');
+        
+        if (tabName === 'outbox') {
+            btnOutbox.className = "px-5 py-2.5 rounded-xl text-sm font-semibold transition bg-blue-600 text-white shadow-sm";
+            btnInbox.className = "px-5 py-2.5 rounded-xl text-sm font-semibold transition bg-white text-gray-600 border border-gray-200 hover:bg-gray-50";
+            if (tableTitle) tableTitle.textContent = 'Outbox';
+        } else {
+            btnInbox.className = "px-5 py-2.5 rounded-xl text-sm font-semibold transition bg-blue-600 text-white shadow-sm";
+            btnOutbox.className = "px-5 py-2.5 rounded-xl text-sm font-semibold transition bg-white text-gray-600 border border-gray-200 hover:bg-gray-50";
+            if (tableTitle) tableTitle.textContent = 'Inbox';
+        }
+
+        if (typeof window.fetchAndUpdateDashboard === 'function') {
+            window.fetchAndUpdateDashboard();
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const branchSelect = document.getElementById('branchSelect');
+        const managerSelect = document.getElementById('managerSelect');
+        const unitSelect = document.getElementById('unitSelect');
+        const userSelect = document.getElementById('userSelect');
+        const activeTabInput = document.getElementById('activeTabInput');
+
+        const statTotal = document.getElementById('statTotal');
+        const statOpen = document.getElementById('statOpen');
+        const statProcess = document.getElementById('statProcess');
+        const statResolved = document.getElementById('statResolved');
+        const statClosed = document.getElementById('statClosed');
+        const ticketTableBody = document.getElementById('ticketTableBody');
+
+        updateFilterBadge();
+
+        function fetchAndUpdateDashboard(resetLevel = null) {
+            if (resetLevel === 'branch') {
+                if (managerSelect) managerSelect.value = 'all';
+                if (unitSelect) unitSelect.value = 'all';
+                if (userSelect) userSelect.value = 'all';
+            } else if (resetLevel === 'manager') {
+                if (unitSelect) unitSelect.value = 'all';
+                if (userSelect) userSelect.value = 'all';
+            } else if (resetLevel === 'unit') {
+                if (userSelect) userSelect.value = 'all';
+            }
+
+            updateFilterBadge();
+
+            const branchId = branchSelect ? branchSelect.value : 'all';
+            const managerId = managerSelect ? managerSelect.value : 'all';
+            const unitId = unitSelect ? unitSelect.value : 'all';
+            const userId = userSelect ? userSelect.value : 'all';
+            const tabVal = activeTabInput ? activeTabInput.value : 'inbox';
+
+            fetch(`/dashboard/api/filter-options?branch_id=${branchId}&manager_id=${managerId}&unit_id=${unitId}&user_id=${userId}&tab=${tabVal}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        if (statTotal) statTotal.textContent = data.stats.total_inbox;
+                        if (statOpen) statOpen.textContent = data.stats.total_open;
+                        if (statProcess) statProcess.textContent = data.stats.total_process;
+                        if (statResolved) statResolved.textContent = data.stats.total_resolved;
+                        if (statClosed) statClosed.textContent = data.stats.total_closed;
+
+                        if (ticketTableBody) {
+                            if (data.recentTickets.length > 0) {
+                                let rowsHtml = '';
+                                data.recentTickets.forEach(ticket => {
+                                    let formattedDate = '-';
+                                    if (ticket.created_at) {
+                                        const d = new Date(ticket.created_at);
+                                        formattedDate = d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+                                    }
+
+                                    let pColor = 'bg-gray-100 text-gray-700';
+                                    if(ticket.priority === 'High') pColor = 'bg-orange-100 text-orange-700';
+                                    if(ticket.priority === 'Urgent') pColor = 'bg-red-100 text-red-700';
+                                    if(ticket.priority === 'Medium') pColor = 'bg-blue-100 text-blue-700';
+
+                                    let sColor = 'bg-yellow-100 text-yellow-800';
+                                    if(ticket.status === 'Process') sColor = 'bg-blue-100 text-blue-800';
+                                    if(ticket.status === 'Resolved') sColor = 'bg-green-100 text-green-800';
+                                    if(ticket.status === 'Closed') sColor = 'bg-gray-200 text-gray-800';
+                                    if(ticket.status === 'Transferred') sColor = 'bg-purple-100 text-purple-800';
+
+                                    rowsHtml += `
+                                        <tr class="hover:bg-gray-50/50 transition">
+                                            <td class="py-4 px-6 font-semibold text-blue-600">
+                                                ${ticket.ticket_number}
+                                                <div class="text-xs font-normal text-gray-400 mt-0.5">${formattedDate}</div>
+                                            </td>
+                                            <td class="py-3 px-4">
+                                                <div class="font-bold text-gray-900">${ticket.creator_name}</div>
+                                                <div class="text-xs text-gray-500">${ticket.creator_unit_name || 'Unit Umum'}</div>
+                                                ${currentUserRole === 'superadmin' ? `<div class="text-[10px] text-purple-600 font-semibold">${ticket.branch_name}</div>` : ''}
+                                            </td>
+                                            <td class="py-4 px-6">
+                                                <div class="font-medium text-gray-900">${ticket.category}</div>
+                                            </td>
+                                            <td class="py-4 px-6">
+                                                <div class="text-xs text-gray-500 truncate max-w-xs">${ticket.issue_description || ''}</div>
+                                            </td>
+                                            <td class="py-4 px-6 font-medium text-gray-600">${ticket.target_unit_name || '-'}</td>
+                                            <td class="py-4 px-6">
+                                                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${pColor}">${ticket.priority}</span>
+                                            </td>
+                                            <td class="py-4 px-6">
+                                                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${sColor}">${ticket.status}</span>
+                                            </td>
+                                            <td class="py-4 px-6 text-center">
+                                                <a href="/tickets/${ticket.id}" class="inline-flex items-center px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-semibold transition">Respons</a>
+                                            </td>
+                                        </tr>
+                                    `;
+                                });
+                                ticketTableBody.innerHTML = rowsHtml;
+                            } else {
+                                ticketTableBody.innerHTML = `
+                                    <tr>
+                                        <td colspan="8" class="py-12 text-center text-gray-400 text-sm">Belum ada tiket yang sesuai dengan filter saat ini.</td>
+                                    </tr>
+                                `;
+                            }
+                        }
+
+                        if (managerSelect) {
+                            const curManager = managerSelect.value;
+                            managerSelect.innerHTML = '<option value="all">-- Semua Management (All) --</option>';
+                            data.managers.forEach(m => {
+                                const sel = m.id == curManager ? 'selected' : '';
+                                managerSelect.innerHTML += `<option value="${m.id}" ${sel}>${m.name}</option>`;
+                            });
+                        }
+
+                        if (unitSelect) {
+                            const curUnit = unitSelect.value;
+                            unitSelect.innerHTML = '<option value="all">-- Semua Unit (All) --</option>';
+                            data.units.forEach(u => {
+                                const sel = u.id == curUnit ? 'selected' : '';
+                                unitSelect.innerHTML += `<option value="${u.id}" ${sel}>${u.name}</option>`;
+                            });
+                        }
+
+                        if (userSelect) {
+                            const curUser = userSelect.value;
+                            userSelect.innerHTML = '<option value="all">-- Semua Staf (All) --</option>';
+                            data.users.forEach(usr => {
+                                const sel = usr.id == curUser ? 'selected' : '';
+                                userSelect.innerHTML += `<option value="${usr.id}" ${sel}>${usr.name}</option>`;
+                            });
+                        }
+                    }
+                })
+                .catch(err => console.error('Gagal memperbarui dashboard secara live:', err));
+        }
+
+        window.fetchAndUpdateDashboard = fetchAndUpdateDashboard;
+
+        if (branchSelect) branchSelect.addEventListener('change', () => fetchAndUpdateDashboard('branch'));
+        if (managerSelect) managerSelect.addEventListener('change', () => fetchAndUpdateDashboard('manager'));
+        if (unitSelect) unitSelect.addEventListener('change', () => fetchAndUpdateDashboard('unit'));
+        if (userSelect) userSelect.addEventListener('change', () => fetchAndUpdateDashboard('user'));
+    });
+</script>

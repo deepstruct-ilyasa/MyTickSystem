@@ -44,6 +44,7 @@ const initializeDatabase = async () => {
                 unit_id INTEGER REFERENCES units(id) ON DELETE RESTRICT,
                 supervisor_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
                 nip VARCHAR(100) UNIQUE NOT NULL,
+                profile_picture VARCHAR(255),
                 name VARCHAR(255) NOT NULL,
                 password VARCHAR(255) NOT NULL,
                 role VARCHAR(50) NOT NULL
@@ -54,9 +55,13 @@ const initializeDatabase = async () => {
         await client.query(`
             CREATE TABLE IF NOT EXISTS ticket_categories (
                 id SERIAL PRIMARY KEY,
+                branch_id INTEGER REFERENCES branches(id) ON DELETE RESTRICT,
                 category VARCHAR(100) NOT NULL,
                 issue_description VARCHAR(255) NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                updated_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP
             );
         `);
 

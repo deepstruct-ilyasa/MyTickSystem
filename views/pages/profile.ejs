@@ -1,36 +1,22 @@
-<div class="max-w-2xl mx-auto bg-white rounded-xl shadow-sm border border-gray-200 p-6 md:p-8" x-data="profilePreview()">
+<div class="max-w-2xl mx-auto bg-white rounded-xl shadow-sm border border-gray-200 p-6 md:p-8" x-data="profileForm()">
     <h2 class="text-xl font-bold text-gray-800 mb-1">Profil Saya</h2>
     <p class="text-sm text-gray-500 mb-6">Kelola informasi akun dan ubah password mandiri Anda di sini.</p>
 
-    <!-- Notifikasi Alert -->
-    <% if (error) { %>
-        <div class="mb-4 p-4 bg-red-50 border-l-4 border-red-500 text-red-700 text-sm rounded-r-lg"><%= error %></div>
-    <% } %>
-    <% if (success) { %>
-        <div class="mb-4 p-4 bg-green-50 border-l-4 border-green-500 text-green-700 text-sm rounded-r-lg"><%= success %></div>
-    <% } %>
-
-    <form action="/profile/update" method="POST" enctype="multipart/form-data" class="space-y-4">
+    <form @submit.prevent="submitProfile" class="space-y-4">
         
         <!-- Bagian Foto Profil dengan Live Preview -->
         <div class="flex items-center space-x-4 mb-4">
-            <!-- Lingkaran Avatar -->
             <div class="w-16 h-16 rounded-full overflow-hidden bg-blue-600 text-white flex items-center justify-center font-bold text-xl border border-gray-300 shrink-0">
-                
-                <!-- 1. Munculkan gambar jika ada preview baru ATAU sudah ada foto profil di database -->
                 <template x-if="imageUrl">
                     <img :src="imageUrl" alt="Preview Foto" class="w-full h-full object-cover">
                 </template>
-
                 <template x-if="!imageUrl">
                     <% if (profileUser.profile_picture) { %>
                         <img src="/uploads/profile/<%= profileUser.profile_picture %>" alt="Foto Profil" class="w-full h-full object-cover">
                     <% } else { %>
-                        <!-- Fallback teks inisial langsung dirender di sini agar pasti muncul -->
                         <span><%= profileUser.name.charAt(0).toUpperCase() %></span>
                     <% } %>
                 </template>
-
             </div>
             <div>
                 <label class="block text-xs font-semibold uppercase text-gray-600 mb-1">Ganti Foto Profil</label>
@@ -57,7 +43,7 @@
 
         <div>
             <label class="block text-xs font-semibold uppercase text-gray-600 mb-1">Nama Lengkap</label>
-            <input type="text" name="name" value="<%= profileUser.name %>" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+            <input type="text" x-model="name" name="name" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
         </div>
 
         <hr class="my-6 border-gray-200">
@@ -67,41 +53,120 @@
 
         <div>
             <label class="block text-xs font-semibold uppercase text-gray-600 mb-1">Password Lama</label>
-            <input type="password" name="current_password" placeholder="Masukkan password saat ini" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+            <input type="password" x-model="current_password" name="current_password" placeholder="Masukkan password saat ini" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
                 <label class="block text-xs font-semibold uppercase text-gray-600 mb-1">Password Baru</label>
-                <input type="password" name="new_password" placeholder="Masukkan password baru" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                <input type="password" x-model="new_password" name="new_password" placeholder="Masukkan password baru" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
             </div>
             <div>
                 <label class="block text-xs font-semibold uppercase text-gray-600 mb-1">Konfirmasi Password Baru</label>
-                <input type="password" name="confirm_password" placeholder="Ulangi password baru" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                <input type="password" x-model="confirm_password" name="confirm_password" placeholder="Ulangi password baru" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
             </div>
         </div>
 
         <div class="pt-4 flex justify-end">
-            <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-2 rounded-lg text-sm transition shadow-sm">
-                Simpan Perubahan
+            <button type="submit" :disabled="loading" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-2 rounded-lg text-sm transition shadow-sm flex items-center">
+                <span x-show="loading" class="mr-2 animate-spin">⏳</span>
+                <span x-text="loading ? 'Menyimpan...' : 'Simpan Perubahan'"></span>
             </button>
         </div>
     </form>
 </div>
 
-<!-- Script Alpine.js untuk menangani logika Preview Gambar -->
+<!-- Script Alpine.js + SweetAlert2 untuk AJAX tanpa Refresh & Live Header Sync -->
 <script>
-function profilePreview() {
+function profileForm() {
     return {
+        name: '<%= profileUser.name %>',
+        current_password: '',
+        new_password: '',
+        confirm_password: '',
         imageUrl: null,
+        selectedFile: null,
+        loading: false,
+
         fileChosen(event) {
             const file = event.target.files[0];
             if (file) {
+                this.selectedFile = file;
                 const reader = new FileReader();
                 reader.onload = e => {
                     this.imageUrl = e.target.result;
                 };
                 reader.readAsDataURL(file);
+            }
+        },
+
+        async submitProfile(event) {
+            this.loading = true;
+
+            const formData = new FormData();
+            formData.append('name', this.name);
+            formData.append('current_password', this.current_password);
+            formData.append('new_password', this.new_password);
+            formData.append('confirm_password', this.confirm_password);
+            if (this.selectedFile) {
+                formData.append('profile_picture', this.selectedFile);
+            }
+
+            try {
+                const response = await fetch('/profile/update', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    // 1. MUNCULKAN POPUP SWEETALERT SUKSES
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Berhasil!',
+                        text: result.message,
+                        confirmButtonColor: '#2563eb'
+                    });
+
+                    // 2. UPDATE NAMA DI HEADER SECARA REAL-TIME TANPA REFRESH
+                    const headerNameEl = document.getElementById('userNameDisplay');
+                    if (headerNameEl) {
+                        headerNameEl.innerText = this.name;
+                    }
+
+                    // ⭐ 3. UPDATE FOTO AVATAR DI HEADER SECARA REAL-TIME (JIKA GANTI FOTO)
+                    if (this.selectedFile) {
+                        const headerAvatarContainer = document.querySelector('header .rounded-full.overflow-hidden');
+                        if (headerAvatarContainer) {
+                            headerAvatarContainer.innerHTML = `<img src="${this.imageUrl}" alt="Avatar" class="w-full h-full object-cover">`;
+                        }
+                    }
+
+                    // 4. RESET FIELD PASSWORD
+                    this.current_password = '';
+                    this.new_password = '';
+                    this.confirm_password = '';
+                    this.selectedFile = null;
+                } else {
+                    // MUNCULKAN POPUP SWEETALERT ERROR
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Oops...',
+                        text: result.message || 'Gagal memperbarui profil.',
+                        confirmButtonColor: '#dc2626'
+                    });
+                }
+            } catch (error) {
+                console.error(error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Kesalahan Server',
+                    text: 'Terjadi kesalahan pada koneksi server.',
+                    confirmButtonColor: '#dc2626'
+                });
+            } finally {
+                this.loading = false;
             }
         }
     }

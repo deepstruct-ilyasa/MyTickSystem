@@ -2,21 +2,20 @@ const express = require('express');
 const router = express.Router();
 const TicketController = require('../controllers/TicketController');
 const { isAuthenticated } = require('../middlewares/authMiddleware');
-const upload = require('../middlewares/uploadTicket');
+const uploadTicket = require('../middlewares/uploadTicket'); // <-- Import middleware upload ticket yang sudah kamu buat
 
-// GET Halaman Manajemen Tiket (Inbox & Outbox dalam 1 halaman)
-router.get('/', isAuthenticated, TicketController.listTicketsUnified);
+// Rute Master Kategori
+router.get('/categories', isAuthenticated, TicketController.getCategories);
+router.post('/categories/create', isAuthenticated, TicketController.createCategory);
+router.post('/categories/:id/update', isAuthenticated, TicketController.updateCategory);
+router.post('/categories/:id/delete', isAuthenticated, TicketController.deleteCategory);
 
-// GET Detail Tiket
-router.get('/:id', isAuthenticated, TicketController.getTicketDetail);
-
-// POST Update Status / Kirim Pesan Progres Tiket
-router.post('/:id/update', isAuthenticated, TicketController.updateTicketStatus);
-
-// GET Form Buat Tiket
+// Rute Tiket (PASTIKAN uploadTicket.single('attachment') ADA DI SINI)
 router.get('/create', isAuthenticated, TicketController.renderCreateForm);
+router.post('/create', isAuthenticated, uploadTicket.single('attachment'), TicketController.createTicket); // <-- Diperbarui
 
-// POST Simpan Tiket
-router.post('/create', isAuthenticated, upload.single('attachment'), TicketController.createTicket);
+router.get('/', isAuthenticated, TicketController.listTicketsUnified);
+router.get('/:id', isAuthenticated, TicketController.getTicketDetail);
+router.post('/:id/update', isAuthenticated, TicketController.updateTicketStatus);
 
 module.exports = router;

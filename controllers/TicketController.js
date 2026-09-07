@@ -7,6 +7,10 @@ const TicketController = {
         try {
             const user = req.session.user;
 
+            if (user.role === 'admin_cabang') {
+                return res.redirect('/tickets?error=Admin Cabang tidak dapat membuat ticket.');
+            }
+
             const categoryQuery = await pool.query(
                 'SELECT category, issue_description FROM ticket_categories ORDER BY category ASC'
             );
@@ -37,16 +41,17 @@ const TicketController = {
         try {
             const user = req.session.user;
 
-            // 1. Ambil Data Tiket Masuk (Inbox) berdasarkan unit tujuan aktif saat ini
             let inboxQuery = `
                 SELECT t.id, t.ticket_number, t.category, t.issue_description, 
                 t.priority, t.status, t.created_at,
                 u_creator.name as creator_name, 
                 b_creator.name as branch_name,
+                u_origin.name as creator_unit_name,
                 u_target.name as target_unit_name
                 FROM tickets t
                 JOIN users u_creator ON t.creator_id = u_creator.id
                 JOIN branches b_creator ON t.branch_id = b_creator.id
+                JOIN units u_origin ON u_creator.unit_id = u_origin.id
                 JOIN units u_target ON t.target_unit_id = u_target.id
             `;
             let inboxParams = [];
@@ -57,23 +62,23 @@ const TicketController = {
                 inboxQuery += ' WHERE t.branch_id = $1';
                 inboxParams = [user.branch_id];
             } else {
-                // Staf/Unit: Hanya tiket yang benar-benar dipegang oleh unitnya saat ini
                 inboxQuery += ' WHERE t.target_unit_id = $1';
                 inboxParams = [user.unit_id];
             }
             inboxQuery += ' ORDER BY t.created_at DESC';
             const inboxRes = await pool.query(inboxQuery, inboxParams);
 
-            // 2. Ambil Data Tiket Keluar / Dibuat Sendiri (Outbox)
             const outboxQuery = `
                 SELECT t.id, t.ticket_number, t.category, t.issue_description, 
                 t.priority, t.status, t.created_at,
                 u_creator.name as creator_name, 
                 b_creator.name as branch_name,
+                u_origin.name as creator_unit_name,
                 u_target.name as target_unit_name
                 FROM tickets t
                 JOIN users u_creator ON t.creator_id = u_creator.id
                 JOIN branches b_creator ON t.branch_id = b_creator.id
+                JOIN units u_origin ON u_creator.unit_id = u_origin.id
                 JOIN units u_target ON t.target_unit_id = u_target.id
                 WHERE t.creator_id = $1
                 ORDER BY t.created_at DESC
@@ -101,6 +106,11 @@ const TicketController = {
             await client.query('BEGIN');
 
             const user = req.session.user;
+
+            if (user.role === 'admin_cabang') {
+                return res.redirect('/tickets?error=Aksi ditolak. Admin Cabang tidak diizinkan membuat tiket.');
+            }
+
             const { category, issue_description, custom_issue, target_unit_id, priority, details } = req.body;
             
             const finalIssueDesc = issue_description === 'Lainnya' ? custom_issue : issue_description;
@@ -271,7 +281,6 @@ const TicketController = {
             const ticket = currentTicketRes.rows[0];
             const currentStatus = ticket.status;
 
-            // Validasi Hak Akses: Hanya unit tujuan aktif saat ini (atau superadmin) yang boleh mengubah
             if (user.role !== 'superadmin' && currentStatus !== 'Closed') {
                 if (parseInt(user.unit_id) !== parseInt(ticket.target_unit_id)) {
                     return res.redirect(`/tickets/${ticketId}?error=Anda tidak memiliki hak akses karena tiket sudah dialihkan ke unit lain.`);
@@ -287,13 +296,15 @@ const TicketController = {
 
             if (newStatus === 'Transferred') {
                 if (currentStatus !== 'Closed' && new_target_unit_id) {
-                    // Dilarang keras mentransfer kembali ke unit pelapor asli
                     if (parseInt(new_target_unit_id) !== parseInt(ticket.creator_unit_id)) {
                         isValidTransition = true;
-                        targetStatusToSave = 'Open'; // Status otomatis kembali ke Open di unit baru!
+                        targetStatusToSave = 'Open'; 
                     }
                 }
             } else if (currentStatus === 'Open' && newStatus === 'Process') {
+                isValidTransition = true;
+            } else if (currentStatus === 'Transferred' && newStatus === 'Process') {
+                // IZIN TAMBAHAN: Unit penerima transfer bisa mengubah status dari Transferred ke Process
                 isValidTransition = true;
             } else if (currentStatus === 'Process' && (newStatus === 'Resolved' || newStatus === 'Closed')) {
                 isValidTransition = true;
@@ -312,7 +323,6 @@ const TicketController = {
             await client.query('BEGIN');
 
             if (newStatus === 'Transferred') {
-                // Update target_unit_id ke unit baru DAN reset status menjadi 'Open'
                 await client.query(`
                     UPDATE tickets 
                     SET status = $1, target_unit_id = $2 
@@ -347,6 +357,123 @@ const TicketController = {
             res.redirect(`/tickets/${req.params.id}?error=Gagal memperbarui status tiket.`);
         } finally {
             client.release();
+        }
+    },
+
+    async getCategories(req, res) {
+        try {
+            const user = req.session.user;
+            let query = `
+                SELECT tc.*, b.name as branch_name, 
+                       u_creator.name as creator_name, 
+                       u_editor.name as editor_name 
+                FROM ticket_categories tc
+                JOIN branches b ON tc.branch_id = b.id
+                LEFT JOIN users u_creator ON tc.created_by = u_creator.id
+                LEFT JOIN users u_editor ON tc.updated_by = u_editor.id
+            `;
+            let params = [];
+
+            // Jika bukan superadmin, batasi hanya melihat kategori milik cabangnya sendiri
+            if (user.role !== 'superadmin' && user.branch_id) {
+                query += ` WHERE tc.branch_id = $1`;
+                params.push(user.branch_id);
+            }
+
+            query += ` ORDER BY b.name ASC, tc.category ASC, tc.issue_description ASC`;
+            const categoriesRes = await pool.query(query, params);
+            
+            // Ambil daftar cabang untuk pilihan form (khusus superadmin)
+            const branchesRes = await pool.query('SELECT id, name FROM branches ORDER BY name ASC');
+
+            res.render('layouts/main', {
+                title: 'Master Kategori - Ticketing System',
+                user: user,
+                partialsPath: '../pages/tickets/categories',
+                categories: categoriesRes.rows,
+                branches: branchesRes.rows,
+                error: req.query.error || null,
+                success: req.query.success || null
+            });
+        } catch (error) {
+            console.error('[TicketController] Error memuat kategori:', error);
+            res.status(500).send('Terjadi kesalahan internal server.');
+        }
+    },
+
+    async createCategory(req, res) {
+        try {
+            const user = req.session.user;
+            const allowedRoles = ['superadmin', 'admin_cabang', 'manager', 'supervisor'];
+
+            if (!allowedRoles.includes(user.role)) {
+                return res.redirect('/dashboard?error=Anda tidak memiliki wewenang untuk menambah kategori.');
+            }
+
+            const { category, issue_description, branch_id } = req.body;
+            const targetBranchId = user.role === 'superadmin' ? branch_id : user.branch_id;
+            const userId = user.id || user.user_id; // Ambil ID user yang login
+
+            if (!targetBranchId) {
+                return res.redirect('/tickets/categories?error=Cabang tidak valid.');
+            }
+
+            // Simpan data beserta created_by dan created_at secara manual
+            await pool.query(`
+                INSERT INTO ticket_categories (branch_id, category, issue_description, created_by, created_at)
+                VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
+            `, [targetBranchId, category, issue_description, userId]);
+
+            res.redirect('/tickets/categories?success=Kategori berhasil ditambahkan.');
+        } catch (error) {
+            console.error('[TicketController] Gagal menambah kategori:', error);
+            res.redirect('/tickets/categories?error=Gagal menambah kategori kendala.');
+        }
+    },
+
+    async updateCategory(req, res) {
+        try {
+            const user = req.session.user;
+            const allowedRoles = ['superadmin', 'admin_cabang', 'manager', 'supervisor'];
+
+            if (!allowedRoles.includes(user.role)) {
+                return res.redirect('/dashboard?error=Anda tidak memiliki wewenang untuk memperbarui kategori.');
+            }
+
+            const catId = req.params.id;
+            const { category, issue_description, branch_id } = req.body;
+            let targetBranchId = user.role === 'superadmin' ? branch_id : user.branch_id;
+            const userId = user.id || user.user_id; // Ambil ID user yang mengedit
+
+            // Perbarui data beserta updated_by dan updated_at secara manual
+            await pool.query(`
+                UPDATE ticket_categories 
+                SET branch_id = $1, category = $2, issue_description = $3, updated_by = $4, updated_at = CURRENT_TIMESTAMP
+                WHERE id = $5
+            `, [targetBranchId, category, issue_description, userId, catId]);
+
+            res.redirect('/tickets/categories?success=Kategori berhasil diperbarui.');
+        } catch (error) {
+            console.error('[TicketController] Gagal memperbarui kategori:', error);
+            res.redirect('/tickets/categories?error=Gagal memperbarui kategori.');
+        }
+    },
+
+    async deleteCategory(req, res) {
+        try {
+            const user = req.session.user;
+            const allowedRoles = ['superadmin', 'admin_cabang', 'manager', 'supervisor'];
+
+            if (!allowedRoles.includes(user.role)) {
+                return res.redirect('/dashboard?error=Anda tidak memiliki wewenang untuk menghapus kategori.');
+            }
+
+            const catId = req.params.id;
+            await pool.query('DELETE FROM ticket_categories WHERE id = $1', [catId]);
+            res.redirect('/tickets/categories?success=Kategori berhasil dihapus.');
+        } catch (error) {
+            console.error('[TicketController] Gagal menghapus kategori:', error);
+            res.redirect('/tickets/categories?error=Gagal menghapus kategori.');
         }
     }
 };

@@ -42,7 +42,7 @@
     <!-- Tom Select JS CDN -->
     <script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
 
-    <!-- Global SweetAlert2 Notification Handler -->
+    <!-- Global SweetAlert2 Notification & URL Cleaner Handler -->
     <script>
     document.addEventListener('DOMContentLoaded', () => {
         const urlParams = new URLSearchParams(window.location.search);
@@ -55,14 +55,27 @@
                 title: 'Berhasil!',
                 text: successMsg,
                 confirmButtonColor: '#2563eb'
+            }).then(() => {
+                // Bersihkan URL setelah user menutup alert sukses
+                window.history.replaceState({}, document.title, window.location.pathname);
             });
+            
+            // Atau langsung bersihkan URL tanpa menunggu klik tombol OK (pilih salah satu, ini otomatis bersih detik itu juga):
+            window.history.replaceState({}, document.title, window.location.pathname);
+
         } else if (errorMsg) {
             Swal.fire({
                 icon: 'error',
                 title: 'Oops...',
                 text: errorMsg,
                 confirmButtonColor: '#dc2626'
+            }).then(() => {
+                // Bersihkan URL setelah user menutup alert error
+                window.history.replaceState({}, document.title, window.location.pathname);
             });
+
+            // Langsung bersihkan URL
+            window.history.replaceState({}, document.title, window.location.pathname);
         }
     });
     </script>

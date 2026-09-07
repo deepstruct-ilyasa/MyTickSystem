@@ -12,11 +12,12 @@ const { isAuthenticated } = require('./middlewares/authMiddleware');
 // Import Routes
 const setupRoutes = require('./routes/setupRoutes');
 const authRoutes = require('./routes/authRoutes');
+const dashboardRoutes = require('./routes/dashboardRoutes'); // <-- Route Dashboard terpisah
+const ticketRoutes = require('./routes/ticketRoutes');       // <-- Jangan lupa pastikan route ticket juga di-import jika belum
 const branchRoutes = require('./routes/branchRoutes');
 const unitRoutes = require('./routes/unitRoutes');
 const userRoutes = require('./routes/userRoutes');
 const profileRoutes = require('./routes/profileRoutes');
-const ticketRoutes = require('./routes/ticketRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -57,25 +58,12 @@ app.use(checkSetup);
 // ==========================================
 app.use('/setup', setupRoutes);
 app.use('/', authRoutes);
+app.use('/', dashboardRoutes);           // <-- Menangani rute '/' dan '/dashboard' via DashboardController
+app.use('/tickets', ticketRoutes);       // <-- Menangani rute manajemen tiket
 app.use('/branches', branchRoutes);
 app.use('/units', unitRoutes);
 app.use('/users', userRoutes);
 app.use('/profile', profileRoutes);
-app.use('/tickets', ticketRoutes);
-
-
-app.get('/', isAuthenticated, (req, res) => {
-    res.redirect('/dashboard');
-});
-
-app.get('/dashboard', isAuthenticated, (req, res) => {
-    res.render('layouts/main', { 
-        title: 'Dashboard - Ticketing System',
-        user: req.session.user,
-        partialsPath: '../pages/dashboard' // Kirim path file view-nya di sini
-    });
-});
-
 
 // ==========================================
 // 6. JALANKAN SERVER

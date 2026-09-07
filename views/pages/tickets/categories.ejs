@@ -1,0 +1,266 @@
+<div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8 space-y-6" 
+     x-data="{ 
+        search: '', 
+        openAddModal: false, 
+        openEditModal: false, 
+        editData: {},
+        showPopup: <%= success ? 'true' : (error ? 'true' : 'false') %>,
+        popupType: '<%= success ? 'success' : 'error' %>',
+        popupMessage: '<%= success || error || '' %>'
+     }">
+    
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 md:p-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+            <span class="text-xs font-semibold uppercase tracking-wider text-blue-600 bg-blue-50 px-3 py-1 rounded-full">Manajemen Sistem</span>
+            <h1 class="text-2xl font-bold text-gray-900 mt-2">Master Kategori Kendala 📋</h1>
+            <p class="text-sm text-gray-500 mt-1">Kelola kategori dan rincian kendala untuk operasional tiket.</p>
+        </div>
+        
+        <% if (['superadmin', 'admin_cabang', 'manager', 'supervisor'].includes(user.role)) { %>
+            <button type="button" @click="openAddModal = true" class="inline-flex items-center px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold shadow-sm transition whitespace-nowrap">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                Tambah Kategori
+            </button>
+        <% } %>
+    </div>
+
+    <div x-show="showPopup" class="fixed inset-0 z-50 overflow-y-auto bg-gray-900/50 backdrop-blur-xs flex items-center justify-center p-4" style="display: none;" x-cloak>
+        <div @click.away="showPopup = false" class="bg-white rounded-3xl shadow-xl border border-gray-100 max-w-sm w-full p-6 text-center space-y-4 transform transition-all">
+            <template x-if="popupType === 'success'">
+                <div class="w-12 h-12 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                </div>
+            </template>
+            <template x-if="popupType === 'error'">
+                <div class="w-12 h-12 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </div>
+            </template>
+            
+            <h3 class="text-lg font-bold text-gray-900" x-text="popupType === 'success' ? 'Berhasil!' : 'Terjadi Kesalahan'"></h3>
+            <p class="text-sm text-gray-600" x-text="popupMessage"></p>
+            
+            <div class="pt-2">
+                <button type="button" @click="showPopup = false; window.history.replaceState({}, document.title, window.location.pathname);" class="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold transition shadow-sm">
+                    OK, Mengerti
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 md:p-8 space-y-4">
+        
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2">
+            <h3 class="text-base font-bold text-gray-800">Daftar Kategori Tersedia</h3>
+            
+            <div class="relative w-full sm:w-72">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-gray-400">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                </span>
+                <input type="text" x-model="search" placeholder="Cari kategori / kendala..." class="w-full pl-10 pr-4 py-2 bg-white border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none shadow-sm">
+            </div>
+        </div>
+
+        <% 
+            const formatDate = (dateString) => {
+                if (!dateString) return null;
+                const d = new Date(dateString);
+                return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) + ', ' + 
+                       d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+            };
+        %>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse text-sm">
+                <thead>
+                    <tr class="border-b border-gray-100 text-xs uppercase text-gray-400 font-semibold">
+                        <th class="py-3 px-4">No</th>
+                        <th class="py-3 px-4">Kategori Utama</th>
+                        <th class="py-3 px-4">Deskripsi Kendala</th>
+                        <th class="py-3 px-4">Dibuat Oleh</th>
+                        <th class="py-3 px-4">Diedit Oleh</th>
+                        <% if (user.role === 'superadmin') { %>
+                            <th class="py-3 px-4">Cabang</th>
+                        <% } %>
+                        <th class="py-3 px-4 text-center">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-50">
+                    <% if (categories && categories.length > 0) { %>
+                        <% categories.forEach((cat, index) => { %>
+                            <tr class="hover:bg-gray-50/50 transition"
+                                x-show="search === '' || [
+                                    '<%= cat.category %>', 
+                                    '<%= cat.issue_description %>', 
+                                    '<%= cat.branch_name || '' %>',
+                                    '<%= cat.creator_name || '' %>',
+                                    '<%= cat.editor_name || '' %>'
+                                ].some(val => val.toLowerCase().includes(search.toLowerCase()))">
+                                <td class="py-3 px-4 text-gray-500"><%= index + 1 %></td>
+                                <td class="py-3 px-4 font-bold text-gray-900"><%= cat.category %></td>
+                                <td class="py-3 px-4 text-gray-700"><%= cat.issue_description %></td>
+                                
+                                <td class="py-3 px-4 text-gray-600">
+                                    <div class="font-medium text-gray-800"><%= cat.creator_name || 'Sistem / Admin' %></div>
+                                    <div class="text-[11px] text-gray-400"><%= formatDate(cat.created_at) %></div>
+                                </td>
+
+                                <td class="py-3 px-4 text-gray-600">
+                                    <% if (cat.editor_name) { %>
+                                        <div class="font-medium text-gray-800"><%= cat.editor_name %></div>
+                                        <div class="text-[11px] text-gray-400"><%= formatDate(cat.updated_at) %></div>
+                                    <% } else { %>
+                                        <span class="text-xs text-gray-400 italic">Belum pernah diedit</span>
+                                    <% } %>
+                                </td>
+
+                                <% if (user.role === 'superadmin') { %>
+                                    <td class="py-3 px-4">
+                                        <span class="px-2.5 py-1 bg-purple-50 text-purple-700 rounded-full text-xs font-semibold"><%= cat.branch_name %></span>
+                                    </td>
+                                <% } %>
+
+                                <td class="py-3 px-4 text-center space-x-2">
+                                    <% if (['superadmin', 'admin_cabang', 'manager', 'supervisor'].includes(user.role)) { %>
+                                        <button @click="openEditModal = true; editData = { id: '<%= cat.id %>', category: '<%= cat.category %>', issue_description: '<%= cat.issue_description %>', branch_id: '<%= cat.branch_id %>' }; if(window.editTomSelect) window.editTomSelect.setValue('<%= cat.category %>');" class="px-3 py-1.5 bg-yellow-50 hover:bg-yellow-100 text-yellow-700 rounded-lg text-xs font-semibold transition">
+                                            Edit
+                                        </button>
+                                        <form action="/tickets/categories/<%= cat.id %>/delete" method="POST" class="inline" onsubmit="return confirm('Yakin ingin menghapus kategori ini?')">
+                                            <button type="submit" class="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-xs font-semibold transition">
+                                                Hapus
+                                            </button>
+                                        </form>
+                                    <% } %>
+                                </td>
+                            </tr>
+                        <% }) %>
+                    <% } else { %>
+                        <tr>
+                            <td colspan="<%= user.role === 'superadmin' ? '7' : '6' %>" class="py-8 text-center text-gray-400 text-sm">Belum ada kategori kendala yang terdaftar.</td>
+                        </tr>
+                    <% } %>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div x-show="openAddModal" class="fixed inset-0 z-50 overflow-y-auto bg-gray-900/50 backdrop-blur-xs flex items-center justify-center p-4" style="display: none;" x-cloak>
+        <div @click.away="openAddModal = false" class="bg-white rounded-3xl shadow-xl border border-gray-100 max-w-md w-full p-6 space-y-6">
+            <div class="flex items-center justify-between border-b border-gray-100 pb-3">
+                <h3 class="text-lg font-bold text-gray-900">Tambah Kategori Baru</h3>
+                <button type="button" @click="openAddModal = false" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+
+            <form action="/tickets/categories/create" method="POST" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-gray-600 mb-1">Kategori Utama</label>
+                    <select id="select-category-add" name="category" required placeholder="Pilih atau ketik kategori baru..." class="w-full">
+                        <option value="">-- Pilih atau Ketik Kategori --</option>
+                        <% 
+                            const uniqueCategories = [...new Set(categories.map(c => c.category))];
+                            uniqueCategories.forEach(catName => { 
+                        %>
+                            <option value="<%= catName %>"><%= catName %></option>
+                        <% }) %>
+                    </select>
+                    <p class="text-[11px] text-gray-400 mt-1">Pilih dari daftar atau ketik langsung untuk membuat kategori baru.</p>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-gray-600 mb-1">Deskripsi / Rincian Kendala</label>
+                    <input type="text" name="issue_description" required placeholder="Contoh: Kabel LAN Putus" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                </div>
+                
+                <% if (user.role === 'superadmin') { %>
+                    <div>
+                        <label class="block text-xs font-semibold uppercase text-gray-600 mb-1">Pilih Cabang</label>
+                        <select name="branch_id" required class="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                            <option value="">-- Pilih Cabang --</option>
+                            <% branches.forEach(b => { %>
+                                <option value="<%= b.id %>"><%= b.name %></option>
+                            <% }) %>
+                        </select>
+                    </div>
+                <% } %>
+
+                <div class="flex items-center justify-end space-x-3 pt-3 border-t border-gray-100">
+                    <button type="button" @click="openAddModal = false" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl text-xs font-semibold transition">
+                        Batal
+                    </button>
+                    <button type="submit" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold shadow-sm transition">
+                        Simpan Kategori
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div x-show="openEditModal" class="fixed inset-0 z-50 overflow-y-auto bg-gray-900/50 backdrop-blur-xs flex items-center justify-center p-4" style="display: none;" x-cloak>
+        <div @click.away="openEditModal = false" class="bg-white rounded-3xl shadow-xl border border-gray-100 max-w-md w-full p-6 space-y-6">
+            <h3 class="text-lg font-bold text-gray-900">Edit Kategori</h3>
+            <form :action="`/tickets/categories/${editData.id}/update`" method="POST" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-gray-600 mb-1">Kategori Utama</label>
+                    <select id="select-category-edit" name="category" required class="w-full">
+                        <option value="">-- Pilih atau Ketik Kategori --</option>
+                        <% uniqueCategories.forEach(catName => { %>
+                            <option value="<%= catName %>"><%= catName %></option>
+                        <% }) %>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-gray-600 mb-1">Deskripsi / Rincian Kendala</label>
+                    <input type="text" name="issue_description" x-model="editData.issue_description" required class="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                </div>
+                
+                <% if (user.role === 'superadmin') { %>
+                    <div>
+                        <label class="block text-xs font-semibold uppercase text-gray-600 mb-1">Pilih Cabang</label>
+                        <select name="branch_id" x-model="editData.branch_id" required class="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                            <option value="">-- Pilih Cabang --</option>
+                            <% branches.forEach(b => { %>
+                                <option value="<%= b.id %>"><%= b.name %></option>
+                            <% }) %>
+                        </select>
+                    </div>
+                <% } %>
+
+                <div class="flex justify-end space-x-3 pt-2">
+                    <button type="button" @click="openEditModal = false" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl text-xs font-semibold">Batal</button>
+                    <button type="submit" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold">Perbarui</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
+<script>
+    document.addEventListener("DOMContentLoaded", function(){
+        const tomSelectConfig = {
+            create: true,
+            sortField: { field: "text", direction: "asc" },
+            persist: false,
+            createOnBlur: true,
+            placeholder: 'Pilih atau ketik kategori baru...',
+            onInitialize: function() {
+                this.control_input.setAttribute('autocomplete', 'new-password');
+                this.control_input.setAttribute('autocorrect', 'off');
+                this.control_input.setAttribute('autocapitalize', 'none');
+                this.control_input.setAttribute('spellcheck', 'false');
+            }
+        };
+
+        if(document.getElementById('select-category-add')) {
+            new TomSelect('#select-category-add', tomSelectConfig);
+        }
+
+        if(document.getElementById('select-category-edit')) {
+            window.editTomSelect = new TomSelect('#select-category-edit', tomSelectConfig);
+        }
+    });
+</script>
