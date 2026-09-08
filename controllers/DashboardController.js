@@ -11,55 +11,64 @@ const DashboardController = {
             let queryParams = [];
             let paramIndex = 1;
 
+            // --- FILTER MANUAL DARI DROPDOWN ---
             if (branch_id && branch_id !== 'all') {
                 whereClauses.push(`t.branch_id = $${paramIndex++}`);
                 queryParams.push(branch_id);
             }
 
-            // --- PENGAMANAN RBAC BERDASARKAN ROLE ---
-            if (user.role === 'admin_cabang') {
+            // --- PENGAMANAN RBAC BERDASARKAN ROLE & RUANG LINGKUP ---
+            if (user.role === 'superadmin') {
+                // Superadmin melihat semua data, tidak ada batasan tambahan kecuali filter dropdown
+            } else if (user.role === 'admin_cabang') {
+                // Admin Cabang terkunci hanya pada cabangnya sendiri
                 whereClauses.push(`t.branch_id = $${paramIndex++}`);
                 queryParams.push(user.branch_id);
             } else if (user.role === 'manager' || user.role === 'supervisor') {
+                // Manager & Supervisor wajib terkunci di cabang mereka sendiri + unit kepemimpinan mereka
+                whereClauses.push(`t.branch_id = $${paramIndex++}`);
+                queryParams.push(user.branch_id);
+
                 if ((!unit_id || unit_id === 'all') && (!user_id || user_id === 'all')) {
                     if (activeTab === 'inbox') {
                         whereClauses.push(`t.target_unit_id IN (
-                            SELECT id FROM units WHERE id = (SELECT unit_id FROM users WHERE id = $${paramIndex}) 
-                            OR parent_unit_id = (SELECT unit_id FROM users WHERE id = $${paramIndex})
+                            SELECT un.id FROM units un WHERE un.id = (SELECT u.unit_id FROM users u WHERE u.id = $${paramIndex})
+                            OR un.parent_unit_id = (SELECT u2.unit_id FROM users u2 WHERE u2.id = $${paramIndex})
                         )`);
                     } else {
-                        whereClauses.push(`t.creator_id IN (
-                            SELECT id FROM users WHERE unit_id = (SELECT unit_id FROM users WHERE id = $${paramIndex})
-                            OR unit_id IN (SELECT id FROM units WHERE parent_unit_id = (SELECT unit_id FROM users WHERE id = $${paramIndex}))
+                        whereClauses.push(`t.creator_unit_id IN (
+                            SELECT un.id FROM units un WHERE un.id = (SELECT u.unit_id FROM users u WHERE u.id = $${paramIndex})
+                            OR un.parent_unit_id = (SELECT u2.unit_id FROM users u2 WHERE u2.id = $${paramIndex})
                         )`);
                     }
                     queryParams.push(user.id);
                     paramIndex++;
                 }
-            } else if (user.role !== 'superadmin') {
+            } else {
+                // Role Staf / lainnya: Hanya melihat data yang berkaitan dengan unit mereka sendiri
                 if ((!unit_id || unit_id === 'all') && (!user_id || user_id === 'all')) {
                     if (activeTab === 'inbox') {
-                        whereClauses.push(`t.target_unit_id = $${paramIndex++}`);
+                        whereClauses.push(`t.target_unit_id = (SELECT unit_id FROM users WHERE id = $${paramIndex})`);
                     } else {
-                        whereClauses.push(`t.creator_id IN (SELECT id FROM users WHERE unit_id = $${paramIndex++})`);
+                        whereClauses.push(`t.creator_unit_id = (SELECT unit_id FROM users WHERE id = $${paramIndex})`);
                     }
-                    queryParams.push(user.unit_id);
+                    queryParams.push(user.id);
+                    paramIndex++;
                 }
             }
 
-            // --- LOGIKA PEMISAHAN KETAT INBOX VS OUTBOX ---
+            // --- LOGIKA PEMISAHAN KETAT INBOX VS OUTBOX (FILTER LANJUTAN) ---
             if (activeTab === 'inbox') {
                 if (user_id && user_id !== 'all') {
-                    whereClauses.push(`t.target_unit_id IN (SELECT unit_id FROM users WHERE id = $${paramIndex})`);
+                    whereClauses.push(`t.creator_id = $${paramIndex++}`);
                     queryParams.push(user_id);
-                    paramIndex++;
                 } else if (unit_id && unit_id !== 'all') {
                     whereClauses.push(`t.target_unit_id = $${paramIndex++}`);
                     queryParams.push(unit_id);
                 } else if (manager_id && manager_id !== 'all') {
                     whereClauses.push(`t.target_unit_id IN (
-                        SELECT id FROM units WHERE id = (SELECT unit_id FROM users WHERE id = $${paramIndex}) 
-                        OR parent_unit_id = (SELECT unit_id FROM users WHERE id = $${paramIndex})
+                        SELECT id FROM units WHERE id = $${paramIndex} 
+                        OR parent_unit_id = $${paramIndex}
                     )`);
                     queryParams.push(manager_id);
                     paramIndex++;
@@ -68,14 +77,13 @@ const DashboardController = {
                 if (user_id && user_id !== 'all') {
                     whereClauses.push(`t.creator_id = $${paramIndex++}`);
                     queryParams.push(user_id);
-                    paramIndex++;
                 } else if (unit_id && unit_id !== 'all') {
-                    whereClauses.push(`t.creator_id IN (SELECT id FROM users WHERE unit_id = $${paramIndex++})`);
+                    whereClauses.push(`t.creator_unit_id = $${paramIndex++}`);
                     queryParams.push(unit_id);
                 } else if (manager_id && manager_id !== 'all') {
-                    whereClauses.push(`t.creator_id IN (
-                        SELECT id FROM users WHERE unit_id = (SELECT unit_id FROM users WHERE id = $${paramIndex})
-                        OR unit_id IN (SELECT id FROM units WHERE parent_unit_id = (SELECT unit_id FROM users WHERE id = $${paramIndex}))
+                    whereClauses.push(`t.creator_unit_id IN (
+                        SELECT id FROM units WHERE id = $${paramIndex}
+                        OR parent_unit_id = $${paramIndex}
                     )`);
                     queryParams.push(manager_id);
                     paramIndex++;
@@ -108,7 +116,7 @@ const DashboardController = {
                 FROM tickets t
                 JOIN users u_creator ON t.creator_id = u_creator.id
                 JOIN branches b_creator ON t.branch_id = b_creator.id
-                LEFT JOIN units u_origin ON u_creator.unit_id = u_origin.id
+                LEFT JOIN units u_origin ON t.creator_unit_id = u_origin.id
                 LEFT JOIN units u_target ON t.target_unit_id = u_target.id
                 ${whereString}
                 ORDER BY t.created_at DESC
@@ -122,9 +130,12 @@ const DashboardController = {
             // --- Kueri Units Berdasarkan Role ---
             let unitsQuery = "SELECT id, name FROM units WHERE 1=1";
             let unitsParams = [];
-            if (user.role === 'manager' || user.role === 'supervisor') {
-                unitsQuery += " AND (id = (SELECT unit_id FROM users WHERE id = $1) OR parent_unit_id = (SELECT unit_id FROM users WHERE id = $1))";
-                unitsParams.push(user.id);
+            if (user.role === 'admin_cabang') {
+                unitsQuery += " AND branch_id = $1";
+                unitsParams.push(user.branch_id);
+            } else if (user.role === 'manager' || user.role === 'supervisor') {
+                unitsQuery += " AND branch_id = $1 AND (id IN (SELECT unit_id FROM users WHERE id = $2) OR parent_unit_id IN (SELECT unit_id FROM users WHERE id = $2))";
+                unitsParams.push(user.branch_id, user.id);
             }
             unitsQuery += " ORDER BY name ASC";
             const unitsRes = await pool.query(unitsQuery, unitsParams);
@@ -132,12 +143,15 @@ const DashboardController = {
             // --- Kueri Users Berdasarkan Role ---
             let usersQuery = "SELECT id, name FROM users WHERE 1=1";
             let usersParams = [];
-            if (user.role === 'manager' || user.role === 'supervisor') {
-                usersQuery += " AND (unit_id = (SELECT unit_id FROM users WHERE id = $1) OR unit_id IN (SELECT id FROM units WHERE parent_unit_id = (SELECT unit_id FROM users WHERE id = $1)))";
-                usersParams.push(user.id);
-            } else if (user.role !== 'superadmin' && user.role !== 'admin_cabang') {
-                usersQuery += " AND unit_id = $1";
-                usersParams.push(user.unit_id);
+            if (user.role === 'admin_cabang') {
+                usersQuery += " AND branch_id = $1";
+                usersParams.push(user.branch_id);
+            } else if (user.role === 'manager' || user.role === 'supervisor') {
+                usersQuery += " AND branch_id = $1";
+                usersParams.push(user.branch_id);
+            } else if (branch_id && branch_id !== 'all') {
+                usersQuery += " AND branch_id = $1";
+                usersParams.push(branch_id);
             }
             usersQuery += " ORDER BY name ASC";
             const usersRes = await pool.query(usersQuery, usersParams);
@@ -177,48 +191,53 @@ const DashboardController = {
                 queryParams.push(branch_id);
             }
 
-            if (user.role === 'admin_cabang') {
+            if (user.role === 'superadmin') {
+                // Superadmin bebas
+            } else if (user.role === 'admin_cabang') {
                 whereClauses.push(`t.branch_id = $${paramIndex++}`);
                 queryParams.push(user.branch_id);
             } else if (user.role === 'manager' || user.role === 'supervisor') {
+                whereClauses.push(`t.branch_id = $${paramIndex++}`);
+                queryParams.push(user.branch_id);
+
                 if ((!unit_id || unit_id === 'all') && (!user_id || user_id === 'all')) {
                     if (activeTab === 'inbox') {
                         whereClauses.push(`t.target_unit_id IN (
-                            SELECT id FROM units WHERE id = (SELECT unit_id FROM users WHERE id = $${paramIndex}) 
-                            OR parent_unit_id = (SELECT unit_id FROM users WHERE id = $${paramIndex})
+                            SELECT un.id FROM units un WHERE un.id = (SELECT u.unit_id FROM users u WHERE u.id = $${paramIndex})
+                            OR un.parent_unit_id = (SELECT u2.unit_id FROM users u2 WHERE u2.id = $${paramIndex})
                         )`);
                     } else {
-                        whereClauses.push(`t.creator_id IN (
-                            SELECT id FROM users WHERE unit_id = (SELECT unit_id FROM users WHERE id = $${paramIndex})
-                            OR unit_id IN (SELECT id FROM units WHERE parent_unit_id = (SELECT unit_id FROM users WHERE id = $${paramIndex}))
+                        whereClauses.push(`t.creator_unit_id IN (
+                            SELECT un.id FROM units un WHERE un.id = (SELECT u.unit_id FROM users u WHERE u.id = $${paramIndex})
+                            OR un.parent_unit_id = (SELECT u2.unit_id FROM users u2 WHERE u2.id = $${paramIndex})
                         )`);
                     }
                     queryParams.push(user.id);
                     paramIndex++;
                 }
-            } else if (user.role !== 'superadmin') {
+            } else {
                 if ((!unit_id || unit_id === 'all') && (!user_id || user_id === 'all')) {
                     if (activeTab === 'inbox') {
-                        whereClauses.push(`t.target_unit_id = $${paramIndex++}`);
+                        whereClauses.push(`t.target_unit_id = (SELECT unit_id FROM users WHERE id = $${paramIndex})`);
                     } else {
-                        whereClauses.push(`t.creator_id IN (SELECT id FROM users WHERE unit_id = $${paramIndex++})`);
+                        whereClauses.push(`t.creator_unit_id = (SELECT unit_id FROM users WHERE id = $${paramIndex})`);
                     }
-                    queryParams.push(user.unit_id);
+                    queryParams.push(user.id);
+                    paramIndex++;
                 }
             }
 
             if (activeTab === 'inbox') {
                 if (user_id && user_id !== 'all') {
-                    whereClauses.push(`t.target_unit_id IN (SELECT unit_id FROM users WHERE id = $${paramIndex})`);
+                    whereClauses.push(`t.creator_id = $${paramIndex++}`);
                     queryParams.push(user_id);
-                    paramIndex++;
                 } else if (unit_id && unit_id !== 'all') {
                     whereClauses.push(`t.target_unit_id = $${paramIndex++}`);
                     queryParams.push(unit_id);
                 } else if (manager_id && manager_id !== 'all') {
                     whereClauses.push(`t.target_unit_id IN (
-                        SELECT id FROM units WHERE id = (SELECT unit_id FROM users WHERE id = $${paramIndex}) 
-                        OR parent_unit_id = (SELECT unit_id FROM users WHERE id = $${paramIndex})
+                        SELECT id FROM units WHERE id = $${paramIndex} 
+                        OR parent_unit_id = $${paramIndex}
                     )`);
                     queryParams.push(manager_id);
                     paramIndex++;
@@ -227,14 +246,13 @@ const DashboardController = {
                 if (user_id && user_id !== 'all') {
                     whereClauses.push(`t.creator_id = $${paramIndex++}`);
                     queryParams.push(user_id);
-                    paramIndex++;
                 } else if (unit_id && unit_id !== 'all') {
-                    whereClauses.push(`t.creator_id IN (SELECT id FROM users WHERE unit_id = $${paramIndex++})`);
+                    whereClauses.push(`t.creator_unit_id = $${paramIndex++}`);
                     queryParams.push(unit_id);
                 } else if (manager_id && manager_id !== 'all') {
-                    whereClauses.push(`t.creator_id IN (
-                        SELECT id FROM users WHERE unit_id = (SELECT unit_id FROM users WHERE id = $${paramIndex})
-                        OR unit_id IN (SELECT id FROM units WHERE parent_unit_id = (SELECT unit_id FROM users WHERE id = $${paramIndex}))
+                    whereClauses.push(`t.creator_unit_id IN (
+                        SELECT id FROM units WHERE id = $${paramIndex}
+                        OR parent_unit_id = $${paramIndex}
                     )`);
                     queryParams.push(manager_id);
                     paramIndex++;
@@ -266,7 +284,7 @@ const DashboardController = {
                 FROM tickets t
                 JOIN users u_creator ON t.creator_id = u_creator.id
                 JOIN branches b_creator ON t.branch_id = b_creator.id
-                LEFT JOIN units u_origin ON u_creator.unit_id = u_origin.id
+                LEFT JOIN units u_origin ON t.creator_unit_id = u_origin.id
                 LEFT JOIN units u_target ON t.target_unit_id = u_target.id
                 ${whereString}
                 ORDER BY t.created_at DESC
@@ -283,57 +301,32 @@ const DashboardController = {
             managersQuery += " ORDER BY name ASC";
             const managersRes = await pool.query(managersQuery, managersParams);
 
-            // --- Cascading Dropdown Units (Filtered by Role) ---
             let unitsQuery = "SELECT id, name FROM units WHERE 1=1";
             let unitsParams = [];
-            let uIdx = 1;
-            if (user.role === 'manager' || user.role === 'supervisor') {
-                unitsQuery += ` AND (id = (SELECT unit_id FROM users WHERE id = $${uIdx}) OR parent_unit_id = (SELECT unit_id FROM users WHERE id = $${uIdx}))`;
-                unitsParams.push(user.id);
-                uIdx++;
-            } else {
-                if (branch_id && branch_id !== 'all') {
-                    unitsQuery += ` AND branch_id = $${uIdx++}`;
-                    unitsParams.push(branch_id);
-                }
-                if (manager_id && manager_id !== 'all') {
-                    unitsQuery += ` AND (
-                        id = (SELECT unit_id FROM users WHERE id = $${uIdx}) 
-                        OR parent_unit_id = (SELECT unit_id FROM users WHERE id = $${uIdx})
-                    )`;
-                    unitsParams.push(manager_id);
-                    uIdx++;
-                }
+            if (user.role === 'admin_cabang') {
+                unitsQuery += " AND branch_id = $1";
+                unitsParams.push(user.branch_id);
+            } else if (user.role === 'manager' || user.role === 'supervisor') {
+                unitsQuery += " AND branch_id = $1";
+                unitsParams.push(user.branch_id);
+            } else if (branch_id && branch_id !== 'all') {
+                unitsQuery += " AND branch_id = $1";
+                unitsParams.push(branch_id);
             }
             unitsQuery += " ORDER BY name ASC";
             const unitsRes = await pool.query(unitsQuery, unitsParams);
 
-            // --- Cascading Dropdown Users (Filtered by Role) ---
             let usersQuery = "SELECT id, name FROM users WHERE 1=1";
             let usersParams = [];
-            let usrIdx = 1;
-            if (user.role === 'manager' || user.role === 'supervisor') {
-                usersQuery += ` AND (unit_id = (SELECT unit_id FROM users WHERE id = $${usrIdx}) OR unit_id IN (SELECT id FROM units WHERE parent_unit_id = (SELECT unit_id FROM users WHERE id = $${usrIdx})))`;
-                usersParams.push(user.id);
-                usrIdx++;
-            } else {
-                if (branch_id && branch_id !== 'all') {
-                    usersQuery += ` AND branch_id = $${usrIdx++}`;
-                    usersParams.push(branch_id);
-                }
-                if (manager_id && manager_id !== 'all') {
-                    usersQuery += ` AND (
-                        unit_id = (SELECT unit_id FROM users WHERE id = $${usrIdx}) 
-                        OR unit_id IN (SELECT id FROM units WHERE parent_unit_id = (SELECT unit_id FROM users WHERE id = $${usrIdx}))
-                        OR supervisor_id = $${usrIdx}
-                    )`;
-                    usersParams.push(manager_id);
-                    usrIdx++;
-                }
-            }
-            if (unit_id && unit_id !== 'all') {
-                usersQuery += ` AND unit_id = $${usrIdx++}`;
-                usersParams.push(unit_id);
+            if (user.role === 'admin_cabang') {
+                usersQuery += " AND branch_id = $1";
+                usersParams.push(user.branch_id);
+            } else if (user.role === 'manager' || user.role === 'supervisor') {
+                usersQuery += " AND branch_id = $1";
+                usersParams.push(user.branch_id);
+            } else if (branch_id && branch_id !== 'all') {
+                usersQuery += " AND branch_id = $1";
+                usersParams.push(branch_id);
             }
             usersQuery += " ORDER BY name ASC";
             const usersRes = await pool.query(usersQuery, usersParams);

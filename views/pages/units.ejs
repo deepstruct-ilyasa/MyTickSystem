@@ -3,7 +3,7 @@
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
             <h1 class="text-2xl font-bold text-gray-800">Manajemen Unit</h1>
-            <p class="text-sm text-gray-500 mt-1">Kelola Unit Manajemen dan unit operasional di bawahnya.</p>
+            <p class="text-sm text-gray-500 mt-1">Kelola Master Unit Manajemen dan Unit Operasional.</p>
         </div>
         
         <div class="flex items-center gap-3 w-full sm:w-auto">
@@ -30,15 +30,19 @@
     <% } %>
 
     <!-- Tabel Data Unit dengan Support Responsive & Live Search -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden" 
+         x-data="{ editModalOpen: false, editId: '', editName: '', editCode: '', editBranchId: '', editParentId: '', deleteModalOpen: false, deleteActionUrl: '' }">
+         
         <div class="w-full overflow-x-auto">
             <table class="w-full text-left border-collapse min-w-[600px]">
                 <thead>
                     <tr class="bg-gray-50 border-b border-gray-200 text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                        <th class="px-6 py-4">Cabang</th>
+                        <% if (user.role === 'superadmin') { %>
+                            <th class="px-6 py-4">Cabang</th>
+                        <% } %>
                         <th class="px-6 py-4">Nama Unit</th>
-                        <th class="px-6 py-4">Status / Naungan</th>
-                        <th class="px-6 py-4 text-right">Aksi</th>
+                        <th class="px-6 py-4">Status</th>
+                        <th class="px-6 py-4 text-center">Aksi</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-200 text-sm text-gray-700">
@@ -46,26 +50,41 @@
                         <tr><td colspan="4" class="px-6 py-4 text-center text-gray-400">Belum ada data unit.</td></tr>
                     <% } else { %>
                         <% units.forEach(unit => { %>
-                            <!-- Baris tabel difilter secara reaktif berdasarkan cabang atau nama unit -->
                             <tr class="hover:bg-gray-50 transition"
                                 x-show="search === '' || [
                                     '<%= unit.branch_name %>', 
                                     '<%= unit.name %>', 
                                     '<%= unit.parent_name || 'Unit Manajemen' %>'
                                 ].some(val => val.toLowerCase().includes(search.toLowerCase()))">
-                                <td class="px-6 py-4 font-medium text-gray-600"><%= unit.branch_name %></td>
+                                <% if (user.role === 'superadmin') { %>
+                                    <td class="px-6 py-4 font-medium text-gray-600"><%= unit.branch_name %></td>
+                                <% } %>
                                 <td class="px-6 py-4 font-semibold text-gray-800"><%= unit.name %></td>
                                 <td class="px-6 py-4">
                                     <% if (!unit.parent_unit_id) { %>
-                                        <span class="px-2.5 py-1 text-xs font-semibold bg-purple-100 text-purple-700 rounded-full">Unit Manajemen (Atasan)</span>
+                                        <span class="px-2.5 py-1 text-xs font-semibold bg-purple-100 text-purple-700 rounded-full">Unit Manajemen</span>
                                     <% } else { %>
                                         <span class="px-2.5 py-1 text-xs font-semibold bg-sky-100 text-sky-700 rounded-full">Sub Unit: <%= unit.parent_name %></span>
                                     <% } %>
                                 </td>
-                                <td class="px-6 py-4 text-right whitespace-nowrap">
-                                    <form action="/units/delete/<%= unit.id %>" method="POST" class="inline" onsubmit="return confirm('Yakin ingin menghapus unit ini?')">
-                                        <button type="submit" class="text-red-600 hover:underline font-medium">Hapus</button>
-                                    </form>
+                                <td class="py-4 px-6 text-center space-x-2 whitespace-nowrap">
+                                    <% if (user.role === 'superadmin' || user.role === 'admin_cabang') { %>
+                                        <!-- Tombol Edit: Sekarang terhubung langsung dengan state modal di atasnya -->
+                                        <button type="button" 
+                                                @click="editModalOpen = true; editId = '<%= unit.id %>'; editName = '<%= unit.name %>'; editCode = '<%= unit.unit_code %>'; editBranchId = '<%= unit.branch_id %>'; editParentId = '<%= unit.parent_unit_id || '' %>'"
+                                                class="px-3 py-1.5 bg-yellow-50 hover:bg-yellow-100 text-yellow-700 rounded-lg text-xs font-semibold transition shadow-sm">
+                                            Edit
+                                        </button>
+
+                                        <!-- Tombol Hapus: Memicu Modal Pop-up Kustom -->
+                                        <button type="button" 
+                                                @click="deleteModalOpen = true; deleteActionUrl = '/units/delete/<%= unit.id %>'"
+                                                class="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-xs font-semibold transition shadow-sm">
+                                            Hapus
+                                        </button>
+                                    <% } else { %>
+                                        <span class="text-xs text-gray-400 italic">Tidak ada akses</span>
+                                    <% } %>
                                 </td>
                             </tr>
                         <% }) %>
@@ -73,62 +92,75 @@
                 </tbody>
             </table>
         </div>
-    </div>
 
-    <!-- Modal Tambah Unit -->
-    <div x-show="openAddModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" style="display: none;">
-        <div @click.away="openAddModal = false" class="bg-white rounded-xl shadow-xl w-full max-w-md p-6 space-y-4">
-            <h3 class="text-lg font-bold text-gray-800">Tambah Unit Baru</h3>
-            <form action="/units/create" method="POST" class="space-y-4">
+        <!-- ================= MODAL EDIT UNIT ================= -->
+        <div x-show="editModalOpen" x-cloak class="fixed inset-0 z-50 bg-gray-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+            <div @click.away="editModalOpen = false" class="bg-white rounded-3xl shadow-2xl max-w-lg w-full p-6 md:p-8 space-y-6 border border-gray-100 text-left">
+                <div class="flex items-center justify-between border-b border-gray-100 pb-4">
+                    <h3 class="text-lg font-bold text-gray-900">Edit Data Unit</h3>
+                    <button type="button" @click="editModalOpen = false" class="p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+
+                <form :action="`/units/update/${editId}`" method="POST" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold uppercase text-gray-600 mb-1">Pilih Cabang</label>
+                        <select name="branch_id" x-model="editBranchId" required class="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                            <option value="">-- Pilih Cabang --</option>
+                            <% branches.forEach(b => { %>
+                                <option value="<%= b.id %>"><%= b.name %> (<%= b.branch_code %>)</option>
+                            <% }) %>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold uppercase text-gray-600 mb-1">Nama Unit / Manajemen</label>
+                        <input type="text" name="name" x-model="editName" required class="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold uppercase text-gray-600 mb-1">Kode Unit (Sesuai Format Tiket)</label>
+                        <input type="text" name="unit_code" x-model="editCode" required class="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                    </div>
+
+                    <!-- Input tersembunyi untuk parent_unit_id jika ingin dipertahankan atau diubah -->
+                    <input type="hidden" name="parent_unit_id" x-model="editParentId">
+
+                    <div class="flex items-center justify-end space-x-3 pt-4 border-t border-gray-100">
+                        <button type="button" @click="editModalOpen = false" class="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-semibold transition">
+                            Batal
+                        </button>
+                        <button type="submit" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold shadow-sm transition">
+                            Simpan Perubahan
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- ================= MODAL KONFIRMASI HAPUS ================= -->
+        <div x-show="deleteModalOpen" x-cloak class="fixed inset-0 z-50 bg-gray-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+            <div @click.away="deleteModalOpen = false" class="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-6 space-y-5 border border-gray-100 text-center">
+                <div class="w-12 h-12 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" data-name="Path" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                </div>
                 <div>
-                    <label class="block text-xs font-semibold uppercase text-gray-600 mb-1">Pilih Cabang</label>
-                    <select name="branch_id" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white">
-                        <option value="">-- Pilih Cabang --</option>
-                        <% branches.forEach(b => { %>
-                            <option value="<%= b.id %>"><%= b.name %> (<%= b.branch_code %>)</option>
-                        <% }) %>
-                    </select>
+                    <h3 class="text-base font-bold text-gray-900">Konfirmasi Hapus Unit</h3>
+                    <p class="text-xs text-gray-500 mt-1">Apakah Anda yakin ingin menghapus data unit ini? Tindakan ini tidak dapat dibatalkan.</p>
                 </div>
 
-                <!-- Tipe Unit: Menggunakan string 'yes' dan 'no' -->
-                <div>
-                    <label class="block text-xs font-semibold uppercase text-gray-600 mb-1">Tipe Unit</label>
-                    <select x-model="unitType" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white">
-                        <option value="yes">Unit Manajemen (Contoh: Manager Pelayanan)</option>
-                        <option value="no">Unit Biasa (Unit di bawah Manager)</option>
-                    </select>
+                <div class="flex items-center justify-center space-x-3 pt-2">
+                    <button type="button" @click="deleteModalOpen = false" class="w-full px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-semibold transition">
+                        Batal
+                    </button>
+                    <form :action="deleteActionUrl" method="POST" class="w-full">
+                        <button type="submit" class="w-full px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-semibold shadow-sm transition">
+                            Ya, Hapus
+                        </button>
+                    </form>
                 </div>
-
-                <!-- Input tersembunyi ini sekarang akan bekerja sempurna -->
-                <input type="hidden" name="parent_unit_id" :value="unitType === 'yes' ? '' : realParentId">
-
-                <!-- Pilihan Atasan hanya muncul jika unitType bernilai 'no' -->
-                <div x-show="unitType === 'no'" style="display: none;">
-                    <label class="block text-xs font-semibold uppercase text-gray-600 mb-1">Masuk di Bawah Manager Apa?</label>
-                    <select x-model="realParentId" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white">
-                        <option value="">-- Pilih Manager / Unit Manajemen --</option>
-                        <% managementUnits.forEach(mu => { %>
-                            <option value="<%= mu.id %>"><%= mu.name %> (<%= mu.branch_name %>)</option>
-                        <% }) %>
-                    </select>
-                </div>
-
-                <div>
-                    <label class="block text-xs font-semibold uppercase text-gray-600 mb-1">Nama Unit / Jabatan</label>
-                    <input type="text" name="name" required placeholder="Contoh: Manager Pelayanan / Unit Loket" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
-                </div>
-
-                <!-- Input Kode Unit hanya muncul jika unitType bernilai 'no' -->
-                <div x-show="unitType === 'no'" style="display: none;">
-                    <label class="block text-xs font-semibold uppercase text-gray-600 mb-1">Kode Unit Singkat (Misal: LOKET, IT)</label>
-                    <input type="text" name="unit_code" placeholder="LOKET" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
-                </div>
-
-                <div class="flex justify-end space-x-2 pt-2">
-                    <button type="button" @click="openAddModal = false" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium">Batal</button>
-                    <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium">Simpan</button>
-                </div>
-            </form>
+            </div>
         </div>
     </div>
 </div>

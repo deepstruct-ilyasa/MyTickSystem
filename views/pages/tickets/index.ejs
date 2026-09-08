@@ -67,10 +67,7 @@
                                 </td>
                                 <td class="py-3 px-4">
                                     <div class="font-bold text-gray-900"><%= ticket.creator_name %></div>
-                                    <!-- Menampilkan Nama Unit di bawah nama pelapor, alih-alih cabang -->
                                     <div class="text-xs text-gray-500"><%= ticket.creator_unit_name || '-' %></div>
-                                    
-                                    <!-- Jika Superadmin, opsional boleh tampilkan nama cabang kecil di bawahnya atau diabaikan -->
                                     <% if (user.role === 'superadmin') { %>
                                         <div class="text-[10px] text-purple-600 font-semibold"><%= ticket.branch_name %></div>
                                     <% } %>
@@ -116,7 +113,9 @@
                 <thead>
                     <tr class="bg-gray-50 text-gray-600 uppercase text-xs font-semibold tracking-wider border-b border-gray-200">
                         <th class="py-3.5 px-6">No. Tiket</th>
-                        <th class="py-3.5 px-6">Kategori & Kendala</th>
+                        <th class="py-3.5 px-6"><%= user.role === 'superadmin' ? 'Pelapor / Cabang' : 'Pelapor' %></th>
+                        <th class="py-3.5 px-6">Kategori</th>
+                        <th class="py-3.5 px-6">Kendala</th>
                         <th class="py-3.5 px-6">Tujuan Unit</th>
                         <th class="py-3.5 px-6">Prioritas</th>
                         <th class="py-3.5 px-6">Status</th>
@@ -126,7 +125,7 @@
                 <tbody class="divide-y divide-gray-100 text-sm text-gray-700">
                     <% if (outboxTickets.length === 0) { %>
                         <tr>
-                            <td colspan="6" class="py-12 text-center text-gray-400">Anda belum pernah membuat tiket.</td>
+                            <td colspan="8" class="py-12 text-center text-gray-400">Anda belum pernah membuat tiket.</td>
                         </tr>
                     <% } else { %>
                         <% outboxTickets.forEach(ticket => { %>
@@ -137,8 +136,17 @@
                                         <%= new Date(ticket.created_at).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) %>
                                     </div>
                                 </td>
+                                <td class="py-3 px-4">
+                                    <div class="font-bold text-gray-900"><%= ticket.creator_name %></div>
+                                    <div class="text-xs text-gray-500"><%= ticket.creator_unit_name || '-' %></div>
+                                    <% if (user.role === 'superadmin') { %>
+                                        <div class="text-[10px] text-purple-600 font-semibold"><%= ticket.branch_name %></div>
+                                    <% } %>
+                                </td>
                                 <td class="py-4 px-6">
                                     <div class="font-medium text-gray-900"><%= ticket.category %></div>
+                                </td>
+                                <td class="py-4 px-6">
                                     <div class="text-xs text-gray-500 truncate max-w-xs"><%= ticket.issue_description %></div>
                                 </td>
                                 <td class="py-4 px-6 font-medium text-gray-600"><%= ticket.target_unit_name %></td>

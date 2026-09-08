@@ -41,6 +41,7 @@ const TicketController = {
         try {
             const user = req.session.user;
 
+            // 1. Kueri Dasar Inbox (Masuk)
             let inboxQuery = `
                 SELECT t.id, t.ticket_number, t.category, t.issue_description, 
                 t.priority, t.status, t.created_at,
@@ -51,24 +52,13 @@ const TicketController = {
                 FROM tickets t
                 JOIN users u_creator ON t.creator_id = u_creator.id
                 JOIN branches b_creator ON t.branch_id = b_creator.id
-                JOIN units u_origin ON u_creator.unit_id = u_origin.id
+                LEFT JOIN units u_origin ON t.creator_unit_id = u_origin.id
                 JOIN units u_target ON t.target_unit_id = u_target.id
             `;
             let inboxParams = [];
 
-            if (user.role === 'superadmin') {
-                // Superadmin melihat semua tiket masuk global
-            } else if (user.role === 'admin_cabang') {
-                inboxQuery += ' WHERE t.branch_id = $1';
-                inboxParams = [user.branch_id];
-            } else {
-                inboxQuery += ' WHERE t.target_unit_id = $1';
-                inboxParams = [user.unit_id];
-            }
-            inboxQuery += ' ORDER BY t.created_at DESC';
-            const inboxRes = await pool.query(inboxQuery, inboxParams);
-
-            const outboxQuery = `
+            // 2. Kueri Dasar Outbox (Keluar) - Berbasis Unit Struktural
+            let outboxQuery = `
                 SELECT t.id, t.ticket_number, t.category, t.issue_description, 
                 t.priority, t.status, t.created_at,
                 u_creator.name as creator_name, 
@@ -78,12 +68,41 @@ const TicketController = {
                 FROM tickets t
                 JOIN users u_creator ON t.creator_id = u_creator.id
                 JOIN branches b_creator ON t.branch_id = b_creator.id
-                JOIN units u_origin ON u_creator.unit_id = u_origin.id
+                LEFT JOIN units u_origin ON t.creator_unit_id = u_origin.id
                 JOIN units u_target ON t.target_unit_id = u_target.id
-                WHERE t.creator_id = $1
-                ORDER BY t.created_at DESC
             `;
-            const outboxRes = await pool.query(outboxQuery, [user.id]);
+            let outboxParams = [];
+
+            // 3. FILTER STRUKTURAL (ANTI-MUTASI)
+            if (user.role === 'superadmin') {
+                // Superadmin melihat semua tiket masuk & keluar global
+            } else if (user.role === 'admin_cabang') {
+                inboxQuery += ' WHERE t.branch_id = $1';
+                inboxParams = [user.branch_id];
+                
+                outboxQuery += ' WHERE t.branch_id = $1';
+                outboxParams = [user.branch_id];
+            } else if (user.role === 'manager' || user.role === 'supervisor') {
+                // Manager/SPV mencakup unitnya dan sub-unitnya secara struktural
+                inboxQuery += ' WHERE t.target_unit_id IN (SELECT id FROM units WHERE id = $1 OR parent_unit_id = $1)';
+                inboxParams = [user.unit_id];
+                
+                outboxQuery += ' WHERE t.creator_unit_id IN (SELECT id FROM units WHERE id = $1 OR parent_unit_id = $1)';
+                outboxParams = [user.unit_id];
+            } else {
+                inboxQuery += ' WHERE t.target_unit_id = $1';
+                inboxParams = [user.unit_id];
+                
+                outboxQuery += ' WHERE t.creator_unit_id = $1';
+                outboxParams = [user.unit_id];
+            }
+
+            // 4. Eksekusi Kueri
+            inboxQuery += ' ORDER BY t.created_at DESC';
+            outboxQuery += ' ORDER BY t.created_at DESC';
+            
+            const inboxRes = await pool.query(inboxQuery, inboxParams);
+            const outboxRes = await pool.query(outboxQuery, outboxParams);
 
             res.render('layouts/main', {
                 title: 'Manajemen Tiket - Ticketing System',
@@ -162,18 +181,20 @@ const TicketController = {
                 attachmentUrl = `/uploads/tickets/${newFilename}`;
             }
 
+            // [IMPLEMENTASI MUTASI] Menyimpan creator_unit_id secara permanen
             const insertTicketQuery = `
                 INSERT INTO tickets (
-                    ticket_number, branch_id, creator_id, target_unit_id, 
+                    ticket_number, branch_id, creator_unit_id, creator_id, target_unit_id, 
                     category, issue_description, description, priority, 
                     status, attachment_url, created_at
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'Open', $9, CURRENT_TIMESTAMP)
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'Open', $10, CURRENT_TIMESTAMP)
                 RETURNING id;
             `;
 
             const ticketResult = await client.query(insertTicketQuery, [
                 ticketNumber,
                 user.branch_id,
+                user.unit_id, // creator_unit_id statis anti-mutasi
                 user.id,
                 target_unit_id,
                 category,
@@ -210,6 +231,7 @@ const TicketController = {
             const ticketId = req.params.id;
             const user = req.session.user;
 
+            // [IMPLEMENTASI MUTASI] Mengambil unit asal dari t.creator_unit_id, bukan profil live user
             const ticketQuery = await pool.query(`
                 SELECT t.*, 
                 u_creator.name as creator_name, u_creator.nip as creator_nip,
@@ -219,7 +241,7 @@ const TicketController = {
                 FROM tickets t
                 JOIN users u_creator ON t.creator_id = u_creator.id
                 JOIN branches b_creator ON t.branch_id = b_creator.id
-                JOIN units u_origin ON u_creator.unit_id = u_origin.id
+                LEFT JOIN units u_origin ON t.creator_unit_id = u_origin.id
                 JOIN units u_target ON t.target_unit_id = u_target.id
                 WHERE t.id = $1
             `, [ticketId]);
@@ -268,10 +290,10 @@ const TicketController = {
             const { status: newStatus, message, new_target_unit_id } = req.body;
             const user = req.session.user;
 
+            // [IMPLEMENTASI MUTASI] Mengambil t.creator_unit_id langsung dari tabel tickets
             const currentTicketRes = await client.query(`
-                SELECT t.status, t.target_unit_id, u_creator.unit_id as creator_unit_id
+                SELECT t.status, t.target_unit_id, t.creator_unit_id
                 FROM tickets t
-                JOIN users u_creator ON t.creator_id = u_creator.id
                 WHERE t.id = $1
             `, [ticketId]);
 

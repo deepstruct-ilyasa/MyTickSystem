@@ -64,14 +64,15 @@ exports.createUnit = async (req, res) => {
 
         const parentId = parent_unit_id && parent_unit_id !== '' ? parent_unit_id : null;
 
-        // LOGIKA DINAMIS: 
-        // Jika parentId KOSONG (Berarti ini Unit Manajemen / Manager), 
-        // kita generate kode unit otomatis dari nama depannya biar user gak pusing.
-        // Jika parentId TERISI (Unit Biasa), kita pakai inputan unit_code dari form.
+        // LOGIKA DINAMIS RINGKAS: 
+        // Jika parentId KOSONG (Unit Manajemen), buat kode MGR-[3-4 huruf unik] + [angka acak 2 digit biar singkat]
         let finalCode = unit_code;
         if (!parentId) {
-            // Contoh auto-generate kode dari nama: "Manager Pelayanan" -> "MGR-PELAYANAN" atau inisial unik
-            finalCode = 'MGR-' + name.replace(/\s+/g, '').toUpperCase().substring(0, 6) + '-' + Math.floor(100 + Math.random() * 900);
+            // Mengambil maksimal 4 huruf pertama dari nama unit (dibersihkan dari spasi, dijadikan huruf besar)
+            const cleanName = name.replace(/[^a-zA-Z]/g, '').toUpperCase().substring(0, 4);
+            const randomSuffix = Math.floor(10 + Math.random() * 90); // Angka acak 2 digit (10-99)
+            
+            finalCode = `MGR-${cleanName}-${randomSuffix}`;
         }
 
         await pool.query(
@@ -84,6 +85,38 @@ exports.createUnit = async (req, res) => {
         res.redirect('/units?error=Gagal menambah unit. Periksa kembali data.');
     }
 };
+
+
+exports.updateUnit = async (req, res) => {
+    const unitId = req.params.id;
+    const { branch_id, parent_unit_id, name, unit_code } = req.body;
+    const user = req.session.user;
+
+    try {
+        // [PENGAMANAN BACKEND] Hanya Superadmin dan Admin Cabang yang boleh edit
+        if (user.role !== 'superadmin' && user.role !== 'admin_cabang') {
+            return res.redirect('/units?error=Akses ditolak. Anda tidak memiliki wewenang untuk mengedit unit.');
+        }
+
+        // Jika admin cabang, pastikan dia hanya mengedit unit di cabangnya sendiri
+        if (user.role === 'admin_cabang' && user.branch_id != branch_id) {
+            return res.status(403).send('Akses ditolak!');
+        }
+
+        const parentId = parent_unit_id && parent_unit_id !== '' ? parent_unit_id : null;
+
+        await pool.query(
+            'UPDATE units SET branch_id = $1, parent_unit_id = $2, name = $3, unit_code = $4 WHERE id = $5',
+            [branch_id, parentId, name, unit_code, unitId]
+        );
+
+        res.redirect('/units?success=Unit berhasil diperbarui!');
+    } catch (err) {
+        console.error('[UNIT UPDATE ERROR]', err);
+        res.redirect('/units?error=Gagal memperbarui unit. Periksa kembali data.');
+    }
+};
+
 
 // Proses Hapus Unit
 exports.deleteUnit = async (req, res) => {
