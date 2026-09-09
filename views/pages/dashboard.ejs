@@ -173,23 +173,63 @@
 
     <!-- TAMBAHAN BARU: Kartu Persentase & Grafik Status (Chart.js) -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+        <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-200" x-data="{ allCategoryModalOpen: false }">
+            <div class="mb-4 flex items-center justify-between">
+                <div>
+                    <h3 class="text-base font-bold text-gray-800">Top Kategori Kendala (<span id="categoryTitle"><%= filters.tab === 'outbox' ? 'Outbox' : 'Inbox' %></span>)</h3>
+                    <p class="text-xs text-gray-500">8 kategori tiket terbanyak berdasarkan filter aktif.</p>
+                </div>
+                <button type="button" @click="allCategoryModalOpen = true" class="text-xs font-semibold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-xl transition">
+                    All &rarr;
+                </button>
+            </div>
+            
+            <div class="relative w-full h-64 flex justify-center items-center">
+                <canvas id="categoryChart"></canvas>
+            </div>
+
+            <div x-show="allCategoryModalOpen" x-cloak class="fixed inset-0 z-50 bg-gray-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+                <div @click.away="allCategoryModalOpen = false" class="bg-white rounded-3xl shadow-2xl max-w-2xl w-full p-6 md:p-8 space-y-6 border border-gray-100 text-left">
+                    <div class="flex items-center justify-between border-b border-gray-100 pb-4">
+                        <div>
+                            <h3 class="text-lg font-bold text-gray-900">Semua Distribusi Kategori Kendala</h3>
+                            <p class="text-xs text-gray-500 mt-0.5">Grafik lengkap seluruh frekuensi kategori tiket.</p>
+                        </div>
+                        <button type="button" @click="allCategoryModalOpen = false" class="p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                        </button>
+                    </div>
+
+                    <div class="relative w-full h-96 flex justify-center items-center">
+                        <canvas id="allCategoryChart"></canvas>
+                    </div>
+
+                    <div class="flex items-center justify-end pt-4 border-t border-gray-100">
+                        <button type="button" @click="allCategoryModalOpen = false" class="px-5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-semibold transition">
+                            Tutup
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
         
         <!-- Kartu Persentase Penyelesaian -->
         <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 flex flex-col justify-between space-y-4">
             <div>
-                <span class="text-xs font-semibold uppercase tracking-wider text-purple-600 bg-purple-50 px-3 py-1 rounded-full">
-                    Performa Unit
-                </span>
-                <h3 class="text-lg font-bold text-gray-900 mt-3">Tingkat Penyelesaian</h3>
+                <h3 class="text-lg font-bold text-gray-900">Tingkat Penyelesaian</h3>
+                <p class="text-xs text-gray-500">Presentase Kendala dan Penyelesaian.</p>
             </div>
 
-            <div class="flex text-center items-baseline space-x-2">
+            <!-- Kontainer persentase dibuat di tengah secara horizontal dan vertikal -->
+            <div class="flex flex-col items-center justify-center my-auto py-4">
                 <% 
                     const totalAll = parseInt(stats.total_inbox) || 0;
                     const totalFinished = (parseInt(stats.total_resolved) || 0) + (parseInt(stats.total_closed) || 0);
                     const resolutionRate = totalAll > 0 ? Math.round((totalFinished / totalAll) * 100) : 0;
                 %>
-                <span class="text-4xl font-black text-gray-900" id="ratePercent"><%= resolutionRate %>%</span>
+                <!-- Ukuran font diperbesar menjadi text-6xl / text-7xl agar mencolok -->
+                <span class="text-7xl md:text-8xl font-black text-gray-900 tracking-tight" id="ratePercent"><%= resolutionRate %>%</span>
             </div>
 
             <div class="w-full bg-gray-100 rounded-full h-3 overflow-hidden">
@@ -198,7 +238,7 @@
         </div>
 
         <!-- Grafik Sebaran Status Tiket -->
-        <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 lg:col-span-2 flex flex-col justify-between">
+        <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 flex flex-col justify-between">
             <div class="mb-2">
                 <h3 class="text-base font-bold text-gray-800">Distribusi Status Tiket</h3>
                 <p class="text-xs text-gray-500">Proporsi status penanganan tiket secara visual.</p>
@@ -207,7 +247,6 @@
                 <canvas id="statusChart"></canvas>
             </div>
         </div>
-
     </div>
 
     <!-- Tabel Tiket Terbaru -->
@@ -267,7 +306,7 @@
                                 <td class="py-4 px-6">
                                     <% 
                                         let sColor = 'bg-yellow-100 text-yellow-800';
-                                        if(ticket.status === 'Process') sColor = 'bg-blue-100 text-blue-800';
+                                        if(ticket.status === 'Inprogress') sColor = 'bg-blue-100 text-blue-800';
                                         if(ticket.status === 'Resolved') sColor = 'bg-green-100 text-green-800';
                                         if(ticket.status === 'Closed') sColor = 'bg-gray-200 text-gray-800';
                                         if(ticket.status === 'Transferred') sColor = 'bg-purple-100 text-purple-800';
@@ -294,13 +333,15 @@
 <script>
     const currentUserRole = '<%= user.role %>';
     let myStatusChart = null;
+    let myCategoryChart = null;
+    let myAllCategoryChart = null;
     let fetchAndUpdateDashboard = null; // Deklarasi global agar bisa dipanggil fungsi switchTab
 
     function renderDashboardChart(statsData) {
         const ctx = document.getElementById('statusChart').getContext('2d');
         const dataValues = [
             parseInt(statsData.total_open) || 0,
-            parseInt(statsData.total_process) || 0,
+            parseInt(statsData.total_inprogress) || 0,
             parseInt(statsData.total_resolved) || 0,
             parseInt(statsData.total_closed) || 0
         ];
@@ -310,9 +351,9 @@
         }
 
         myStatusChart = new Chart(ctx, {
-            type: 'doughnut',
+            type: 'pie',
             data: {
-                labels: ['Open', 'In Progress', 'Resolved', 'Closed'],
+                labels: ['Open', 'Inprogress', 'Resolved', 'Closed'],
                 datasets: [{
                     data: dataValues,
                     backgroundColor: ['#F59E0B', '#3B82F6', '#10B981', '#6B7280'],
@@ -329,8 +370,75 @@
                         position: 'bottom',
                         labels: { boxWidth: 12, font: { size: 11 } }
                     }
+                }
+            }
+        });
+    }
+
+    // Fungsi Render Chart Kategori Terbanyak (Horizontal Bar)
+    function renderCategoryChart(categoryData) {
+        const ctx = document.getElementById('categoryChart').getContext('2d');
+        
+        const labels = categoryData.map(item => item.category || 'Lainnya');
+        const dataValues = categoryData.map(item => parseInt(item.total) || 0);
+
+        if (myCategoryChart) {
+            myCategoryChart.destroy();
+        }
+
+        myCategoryChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Jumlah Tiket',
+                    data: dataValues,
+                    backgroundColor: '#3B82F6',
+                    borderRadius: 8,
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
                 },
-                cutout: '65%'
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        ticks: { precision: 0 }
+                    }
+                }
+            }
+        });
+    }
+
+    function renderAllCategoryChart(categoryData) {
+        const ctx = document.getElementById('allCategoryChart').getContext('2d');
+        
+        const labels = categoryData.map(item => item.category || 'Lainnya');
+        const dataValues = categoryData.map(item => parseInt(item.total) || 0);
+
+        if (myAllCategoryChart) myAllCategoryChart.destroy();
+
+        myAllCategoryChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Jumlah Tiket',
+                    data: dataValues,
+                    backgroundColor: '#10B981', // Warna hijau emerald agar beda elegan
+                    borderRadius: 8,
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: { x: { beginAtZero: true, ticks: { precision: 0 } } }
             }
         });
     }
@@ -378,15 +486,18 @@
         const btnInbox = document.getElementById('tabInbox');
         const btnOutbox = document.getElementById('tabOutbox');
         const tableTitle = document.getElementById('tableTitle');
+        const categoryTitle = document.getElementById('categoryTitle');
         
         if (tabName === 'outbox') {
             btnOutbox.className = "px-5 py-2.5 rounded-xl text-sm font-semibold transition bg-blue-600 text-white shadow-sm";
             btnInbox.className = "px-5 py-2.5 rounded-xl text-sm font-semibold transition bg-white text-gray-600 border border-gray-200 hover:bg-gray-50";
             if (tableTitle) tableTitle.textContent = 'Outbox';
+            if (categoryTitle) categoryTitle.textContent = 'Outbox';
         } else {
             btnInbox.className = "px-5 py-2.5 rounded-xl text-sm font-semibold transition bg-blue-600 text-white shadow-sm";
             btnOutbox.className = "px-5 py-2.5 rounded-xl text-sm font-semibold transition bg-white text-gray-600 border border-gray-200 hover:bg-gray-50";
             if (tableTitle) tableTitle.textContent = 'Inbox';
+            if (categoryTitle) categoryTitle.textContent = 'Inbox';
         }
 
         if (typeof window.fetchAndUpdateDashboard === 'function') {
@@ -410,7 +521,7 @@
 
         updateFilterBadge();
 
-        // Inisialisasi Chart pertama kali
+        // Inisialisasi Chart Status pertama kali
         const initialStats = {
             total_inbox: '<%= stats.total_inbox %>',
             total_open: '<%= stats.total_open %>',
@@ -419,6 +530,11 @@
             total_closed: '<%= stats.total_closed %>'
         };
         renderDashboardChart(initialStats);
+
+        // Inisialisasi Chart Kategori pertama kali dari data server
+        const initialCategories = <%- JSON.stringify(topCategories || []) %>;
+        renderCategoryChart(initialCategories);
+        renderAllCategoryChart(initialCategories);
 
         fetchAndUpdateDashboard = function(resetLevel = null) {
             if (resetLevel === 'branch') {
@@ -450,9 +566,11 @@
                         if (statResolved) statResolved.textContent = data.stats.total_resolved;
                         if (statClosed) statClosed.textContent = data.stats.total_closed;
 
-                        // Perbarui Grafik dan Persentase secara Live AJAX
+                        // Perbarui Grafik Status, Persentase, & Kategori secara Live AJAX
                         renderDashboardChart(data.stats);
                         updateResolutionRate(data.stats);
+                        renderCategoryChart(data.topCategories);
+                        renderAllCategoryChart(data.topCategories);
 
                         if (ticketTableBody) {
                             if (data.recentTickets.length > 0) {
@@ -470,7 +588,7 @@
                                     if(ticket.priority === 'Medium') pColor = 'bg-blue-100 text-blue-700';
 
                                     let sColor = 'bg-yellow-100 text-yellow-800';
-                                    if(ticket.status === 'Process') sColor = 'bg-blue-100 text-blue-800';
+                                    if(ticket.status === 'Inprogress') sColor = 'bg-blue-100 text-blue-800';
                                     if(ticket.status === 'Resolved') sColor = 'bg-green-100 text-green-800';
                                     if(ticket.status === 'Closed') sColor = 'bg-gray-200 text-gray-800';
                                     if(ticket.status === 'Transferred') sColor = 'bg-purple-100 text-purple-800';

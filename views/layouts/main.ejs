@@ -4,15 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><%= typeof title !== 'undefined' ? title : 'Ticketing System' %></title>
-    <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Alpine.js CDN -->
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     
-    <!-- Tom Select CSS CDN -->
-    <link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.bootstrap5.min.css" rel="stylesheet">
-    <!-- SweetAlert2 CDN -->
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- Tailwind CSS Lokal (Hasil Kompilasi CLI) -->
+    <link href="/css/output.css" rel="stylesheet">
+    
+    <!-- Alpine.js Lokal -->
+    <script defer src="/vendor/alpine.min.js"></script>
+    
+    <!-- Tom Select CSS Lokal -->
+    <link href="/vendor/tom-select/tom-select.bootstrap5.min.css" rel="stylesheet">
+    
+    <!-- SweetAlert2 Lokal -->
+    <script src="/vendor/sweetalert2.all.min.js"></script>
     
     <style>
         [x-cloak] { display: none !important; }
@@ -33,15 +36,14 @@
 
             <!-- Dynamic Content Page -->
             <main class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 p-6">
-                <!-- Memanggil file view yang dikirim dari controller secara dinamis -->
                 <%- include(partialsPath) %>
             </main>
         </div>
     </div>
 
-    <!-- Tom Select JS CDN -->
-    <script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Tom Select & Chart.js Lokal -->
+    <script src="/vendor/tom-select/tom-select.complete.min.js"></script>
+    <script src="/vendor/chart.umd.min.js"></script>
 
     <!-- Global SweetAlert2 Notification & URL Cleaner Handler -->
     <script>
@@ -57,11 +59,8 @@
                 text: successMsg,
                 confirmButtonColor: '#2563eb'
             }).then(() => {
-                // Bersihkan URL setelah user menutup alert sukses
                 window.history.replaceState({}, document.title, window.location.pathname);
             });
-            
-            // Atau langsung bersihkan URL tanpa menunggu klik tombol OK (pilih salah satu, ini otomatis bersih detik itu juga):
             window.history.replaceState({}, document.title, window.location.pathname);
 
         } else if (errorMsg) {
@@ -71,11 +70,8 @@
                 text: errorMsg,
                 confirmButtonColor: '#dc2626'
             }).then(() => {
-                // Bersihkan URL setelah user menutup alert error
                 window.history.replaceState({}, document.title, window.location.pathname);
             });
-
-            // Langsung bersihkan URL
             window.history.replaceState({}, document.title, window.location.pathname);
         }
     });

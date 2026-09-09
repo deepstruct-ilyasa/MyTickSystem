@@ -253,11 +253,16 @@ const TicketController = {
             const ticket = ticketQuery.rows[0];
 
             const logsQuery = await pool.query(`
-                SELECT l.*, u.name as actor_name, u.role as actor_role
-                FROM ticket_logs l
-                JOIN users u ON l.actor_id = u.id
-                WHERE l.ticket_id = $1
-                ORDER BY l.created_at ASC
+                SELECT 
+                    tl.*, 
+                    u.name as actor_name, 
+                    u.role as actor_role,
+                    un.name as actor_unit_name
+                FROM ticket_logs tl
+                LEFT JOIN users u ON tl.actor_id = u.id
+                LEFT JOIN units un ON u.unit_id = un.id
+                WHERE tl.ticket_id = $1
+                ORDER BY tl.created_at ASC
             `, [ticketId]);
 
             const unitQuery = await pool.query(`
@@ -323,12 +328,11 @@ const TicketController = {
                         targetStatusToSave = 'Open'; 
                     }
                 }
-            } else if (currentStatus === 'Open' && newStatus === 'Process') {
+            } else if (currentStatus === 'Open' && newStatus === 'Inprogress') {
                 isValidTransition = true;
-            } else if (currentStatus === 'Transferred' && newStatus === 'Process') {
-                // IZIN TAMBAHAN: Unit penerima transfer bisa mengubah status dari Transferred ke Process
+            } else if (currentStatus === 'Transferred' && newStatus === 'Inprogress') {
                 isValidTransition = true;
-            } else if (currentStatus === 'Process' && (newStatus === 'Resolved' || newStatus === 'Closed')) {
+            } else if (currentStatus === 'Inprogress' && (newStatus === 'Resolved' || newStatus === 'Closed')) {
                 isValidTransition = true;
             } else if (currentStatus === 'Resolved' && newStatus === 'Closed') {
                 isValidTransition = true;

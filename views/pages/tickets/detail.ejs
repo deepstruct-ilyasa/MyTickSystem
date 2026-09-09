@@ -1,4 +1,4 @@
-<div class="max-w-5xl mx-auto py-6 px-4 sm:px-6 lg:px-8 space-y-6">
+<div class="max-w-5xl mx-auto py-3 px-1 sm:px-2 lg:px-4 space-y-4">
     
     <div>
         <a href="/tickets" class="inline-flex items-center text-sm font-medium text-gray-500 hover:text-blue-600 transition">
@@ -12,7 +12,7 @@
             <div>
                 <span class="text-xs font-semibold uppercase tracking-wider text-blue-600 bg-blue-50 px-3 py-1 rounded-full"><%= ticket.category %></span>
                 <h1 class="text-2xl font-bold text-gray-900 mt-2"><%= ticket.ticket_number %></h1>
-                <p class="text-xs text-gray-400 mt-1">Dibuat pada: <%= new Date(ticket.created_at).toLocaleString('id-ID') %></p>
+                <p class="text-xs mt-1">Dibuat pada: <%= new Date(ticket.created_at).toLocaleString('id-ID') %></p>
             </div>
             
             <div class="flex items-center space-x-2">
@@ -26,7 +26,7 @@
 
                 <% 
                     let sColor = 'bg-yellow-100 text-yellow-800';
-                    if(ticket.status === 'Process') sColor = 'bg-blue-100 text-blue-800';
+                    if(ticket.status === 'Inprogress') sColor = 'bg-blue-100 text-blue-800';
                     if(ticket.status === 'Resolved') sColor = 'bg-green-100 text-green-800';
                     if(ticket.status === 'Closed') sColor = 'bg-gray-200 text-gray-800';
                     if(ticket.status === 'Transferred') sColor = 'bg-purple-100 text-purple-800';
@@ -39,7 +39,7 @@
             
             <div>
                 <span class="block text-xs font-semibold uppercase text-gray-400">Pelapor</span>
-                <span class="font-medium text-gray-800"><%= ticket.creator_name %></span>
+                <span class="font-semibold text-gray-800"><%= ticket.creator_name %></span>
                 <span class="block text-xs text-gray-500">NIP: <%= ticket.creator_nip || '-' %></span>
                 <% if (user.role === 'superadmin') { %>
                     <span class="block text-xs text-gray-500">Cabang: <%= ticket.branch_name %></span>
@@ -49,24 +49,24 @@
             <div class="grid grid-cols-2 gap-4 lg:contents">
                 <div>
                     <span class="block text-xs font-semibold uppercase text-gray-400">Unit Asal</span>
-                    <span class="font-medium text-gray-800"><%= ticket.creator_unit_name || '-' %></span>
+                    <span class="font-semibold text-gray-800"><%= ticket.creator_unit_name || '-' %></span>
                 </div>
 
                 <div>
                     <span class="block text-xs font-semibold uppercase text-gray-400">Unit Tujuan</span>
-                    <span class="font-medium text-gray-800"><%= ticket.target_unit_name %></span>
+                    <span class="font-semibold text-gray-800"><%= ticket.target_unit_name %></span>
                 </div>
             </div>
 
             <div>
                 <span class="block text-xs font-semibold uppercase text-gray-400">Detail Kendala</span>
-                <span class="font-medium text-gray-800"><%= ticket.issue_description %></span>
+                <span class="font-semibold text-gray-800"><%= ticket.issue_description %></span>
             </div>
 
         </div>
 
         <div class="py-6 space-y-2">
-            <h3 class="text-xs font-semibold uppercase text-gray-400">Pesan / Penjelasan Lengkap</h3>
+            <h3 class="text-xs font-semibold uppercase text-gray-400">Penjelasan Kendala</h3>
             <div class="p-4 bg-gray-50 rounded-xl border border-gray-200 text-sm text-gray-700 whitespace-pre-line"><%= ticket.description %></div>
         </div>
 
@@ -154,23 +154,23 @@
                             
                             <% if (ticket.status === 'Open') { %>
                                 <option value="Open" selected>Open (Aktif)</option>
-                                <option value="Process">Process (Diproses)</option>
-                            <% } else if (ticket.status === 'Process') { %>
-                                <option value="Process" selected>Process (Sedang Berjalan)</option>
-                                <option value="Resolved">Resolved (Selesai)</option>
-                                <option value="Closed" disabled>Closed (Harus melalui Resolved)</option>
+                                <option value="Inprogress">Inprogress</option>
+                            <% } else if (ticket.status === 'Inprogress') { %>
+                                <option value="Inprogress" selected>Inprogress</option>
+                                <option value="Resolved">Resolved</option>
+                                <option value="Closed" disabled>Closed</option>
                             <% } else if (ticket.status === 'Resolved') { %>
-                                <option value="Resolved" selected>Resolved (Selesai)</option>
+                                <option value="Resolved" selected>Resolved</option>
                                 <option value="Closed">Closed (Ditutup)</option>
                             <% } else if (ticket.status === 'Transferred') { %>
                                 <!-- Opsi default saat tiket baru diterima dari transfer -->
-                                <option value="Transferred" selected>Transferred (Baru Diterima)</option>
-                                <option value="Process">Process (Mulai Diproses)</option>
+                                <option value="Transferred" selected>Transferred</option>
+                                <option value="Inprogress">Inprogress</option>
                             <% } %>
 
                             <!-- Opsi untuk mentransfer ulang jika ternyata masih salah unit -->
                             <% if (ticket.status !== 'Closed' && ticket.status !== 'Transferred') { %>
-                                <option value="Transferred">Transferred (Salah Unit / Eskalasi Lagi)</option>
+                                <option value="Transferred">Transferred (Eskalasi Unit)</option>
                             <% } %>
                         </select>
                     </div>
@@ -215,7 +215,7 @@
                     <!-- Peringatan jika status masih Open atau Transferred awal -->
                     <div x-show="selectedStatus === 'Open' || selectedStatus === 'Transferred'" class="p-3 bg-amber-50 border border-amber-200 rounded-lg">
                         <p class="text-xs text-amber-700 font-medium leading-relaxed">
-                            ⚠️ Tiket berstatus <strong><%= ticket.status %></strong>. Ubah status ke <strong>Process</strong> terlebih dahulu untuk mulai memproses atau mencatat progres.
+                            ⚠️ Tiket berstatus <strong><%= ticket.status %></strong>. Ubah status ke <strong>Inprogress</strong> terlebih dahulu untuk mulai memproses atau mencatat progres.
                         </p>
                     </div>
 
@@ -236,10 +236,15 @@
                 <% logs.forEach(log => { %>
                     <div class="relative space-y-1">
                         <div class="flex items-center justify-between">
-                            <span class="text-xs font-bold text-gray-900"><%= log.actor_name %> <span class="text-gray-400 font-normal">(<%= log.actor_role %>)</span></span>
+                            <span class="text-xs font-bold text-gray-900">
+                                <%= log.actor_name %> 
+                                <span class="text-gray-400 font-normal">
+                                    (<%= log.actor_role %><% if (log.actor_unit_name) { %> - <%= log.actor_unit_name %><% } %>)
+                                </span>
+                            </span>
                             <span class="text-xs text-gray-400"><%= new Date(log.created_at).toLocaleString('id-ID') %></span>
                         </div>
-                        <div class="text-xs font-semibold text-blue-600">Aksi: <%= log.action %></div>
+                        <div class="text-xs font-semibold text-blue-600"><%= log.action %></div>
                         <p class="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg border border-gray-100"><%= log.message %></p>
                     </div>
                 <% }) %>

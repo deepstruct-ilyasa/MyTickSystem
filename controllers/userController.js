@@ -68,12 +68,15 @@ exports.createUser = async (req, res) => {
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
         
-        const finalSupervisor = (supervisor_id && supervisor_id !== '') ? supervisor_id : null;
+        // Konversi aman ke integer atau null jika kosong
+        const finalBranch = (branch_id && branch_id !== '') ? parseInt(branch_id, 10) : null;
+        const finalUnit = (unit_id && unit_id !== '') ? parseInt(unit_id, 10) : null;
+        const finalSupervisor = (supervisor_id && supervisor_id !== '') ? parseInt(supervisor_id, 10) : null;
 
         await pool.query(
             `INSERT INTO users (branch_id, unit_id, supervisor_id, nip, name, password, role)
              VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-            [branch_id, unit_id, finalSupervisor, nip, name, hashedPassword, role]
+            [finalBranch, finalUnit, finalSupervisor, nip, name, hashedPassword, role]
         );
         res.redirect('/users?success=User berhasil ditambah!');
     } catch (err) {
@@ -87,24 +90,26 @@ exports.updateUser = async (req, res) => {
     const { branch_id, unit_id, supervisor_id, nip, name, role } = req.body;
     
     try {
-        const finalSupervisor = (supervisor_id && supervisor_id !== '') ? supervisor_id : null;
+        const finalBranch = (branch_id && branch_id !== '') ? parseInt(branch_id, 10) : null;
+        const finalUnit = (unit_id && unit_id !== '') ? parseInt(unit_id, 10) : null;
+        const finalSupervisor = (supervisor_id && supervisor_id !== '') ? parseInt(supervisor_id, 10) : null;
 
         await pool.query(`
             UPDATE users 
             SET branch_id = $1, unit_id = $2, supervisor_id = $3, 
                 nip = $4, name = $5, role = $6
             WHERE id = $7
-        `, [branch_id, unit_id, finalSupervisor, nip, name, role, id]);
+        `, [finalBranch, finalUnit, finalSupervisor, nip, name, role, id]);
 
-        // PROTEKSI SESSION: Jika user merubah datanya sendiri (misal superadmin update dirinya)
+        // PROTEKSI SESSION
         if (req.session.user && req.session.user.id === parseInt(id)) {
-            req.session.user.branch_id = branch_id;
-            req.session.user.unit_id = unit_id;
+            req.session.user.branch_id = finalBranch;
+            req.session.user.unit_id = finalUnit;
             req.session.user.role = role;
             req.session.user.name = name;
         }
 
-        res.redirect('/users?success=Data user (termasuk mutasi) berhasil diupdate!');
+        res.redirect('/users?success=Data user berhasil diupdate!');
     } catch (err) {
         console.error('[USER UPDATE ERROR]', err);
         res.redirect(`/users?error=Gagal mengupdate user.`);

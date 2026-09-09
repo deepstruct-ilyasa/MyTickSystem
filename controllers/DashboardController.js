@@ -19,13 +19,11 @@ const DashboardController = {
 
             // --- PENGAMANAN RBAC BERDASARKAN ROLE & RUANG LINGKUP ---
             if (user.role === 'superadmin') {
-                // Superadmin melihat semua data, tidak ada batasan tambahan kecuali filter dropdown
+                // Superadmin melihat semua data
             } else if (user.role === 'admin_cabang') {
-                // Admin Cabang terkunci hanya pada cabangnya sendiri
                 whereClauses.push(`t.branch_id = $${paramIndex++}`);
                 queryParams.push(user.branch_id);
             } else if (user.role === 'manager' || user.role === 'supervisor') {
-                // Manager & Supervisor wajib terkunci di cabang mereka sendiri + unit kepemimpinan mereka
                 whereClauses.push(`t.branch_id = $${paramIndex++}`);
                 queryParams.push(user.branch_id);
 
@@ -45,7 +43,6 @@ const DashboardController = {
                     paramIndex++;
                 }
             } else {
-                // Role Staf / lainnya: Hanya melihat data yang berkaitan dengan unit mereka sendiri
                 if ((!unit_id || unit_id === 'all') && (!user_id || user_id === 'all')) {
                     if (activeTab === 'inbox') {
                         whereClauses.push(`t.target_unit_id = (SELECT unit_id FROM users WHERE id = $${paramIndex})`);
@@ -57,7 +54,7 @@ const DashboardController = {
                 }
             }
 
-            // --- LOGIKA PEMISAHAN KETAT INBOX VS OUTBOX (FILTER LANJUTAN) ---
+            // --- LOGIKA PEMISAHAN KETAT INBOX VS OUTBOX ---
             if (activeTab === 'inbox') {
                 if (user_id && user_id !== 'all') {
                     whereClauses.push(`t.creator_id = $${paramIndex++}`);
@@ -96,7 +93,7 @@ const DashboardController = {
                 SELECT 
                     COUNT(*) as total_inbox,
                     COUNT(CASE WHEN t.status = 'Open' OR t.status = 'Transferred' THEN 1 END) as total_open,
-                    COUNT(CASE WHEN t.status = 'Process' THEN 1 END) as total_process,
+                    COUNT(CASE WHEN t.status = 'Inprogress' THEN 1 END) as total_inprogress,
                     COUNT(CASE WHEN t.status = 'Resolved' THEN 1 END) as total_resolved,
                     COUNT(CASE WHEN t.status = 'Closed' THEN 1 END) as total_closed
                 FROM tickets t
@@ -105,6 +102,18 @@ const DashboardController = {
             `;
             const statsRes = await pool.query(statsQuery, queryParams);
             const stats = statsRes.rows[0];
+
+            // --- TAMBAHAN KUERI: Top Kategori Tiket Terbanyak ---
+            const categoryQuery = `
+                SELECT t.category, COUNT(*) as total
+                FROM tickets t
+                LEFT JOIN units u_target ON t.target_unit_id = u_target.id
+                ${whereString}
+                GROUP BY t.category
+                ORDER BY total DESC
+                LIMIT 20
+            `;
+            const categoryRes = await pool.query(categoryQuery, queryParams);
 
             const recentQuery = `
                 SELECT t.id, t.ticket_number, t.category, t.issue_description, 
@@ -127,7 +136,6 @@ const DashboardController = {
             const branchesRes = await pool.query('SELECT id, name FROM branches ORDER BY name ASC');
             const managersRes = await pool.query("SELECT id, name FROM users WHERE role = 'manager' ORDER BY name ASC");
 
-            // --- Kueri Units Berdasarkan Role ---
             let unitsQuery = "SELECT id, name FROM units WHERE 1=1";
             let unitsParams = [];
             if (user.role === 'admin_cabang') {
@@ -140,7 +148,6 @@ const DashboardController = {
             unitsQuery += " ORDER BY name ASC";
             const unitsRes = await pool.query(unitsQuery, unitsParams);
 
-            // --- Kueri Users Berdasarkan Role ---
             let usersQuery = "SELECT id, name FROM users WHERE 1=1";
             let usersParams = [];
             if (user.role === 'admin_cabang') {
@@ -161,6 +168,7 @@ const DashboardController = {
                 user: user,
                 partialsPath: '../pages/dashboard',
                 stats: stats,
+                topCategories: categoryRes.rows, // Dikirim ke view
                 recentTickets: recentRes.rows,
                 branches: branchesRes.rows,
                 managers: managersRes.rows,
@@ -265,7 +273,7 @@ const DashboardController = {
                 SELECT 
                     COUNT(*) as total_inbox,
                     COUNT(CASE WHEN t.status = 'Open' OR t.status = 'Transferred' THEN 1 END) as total_open,
-                    COUNT(CASE WHEN t.status = 'Process' THEN 1 END) as total_process,
+                    COUNT(CASE WHEN t.status = 'Inprogress' THEN 1 END) as total_inprogress,
                     COUNT(CASE WHEN t.status = 'Resolved' THEN 1 END) as total_resolved,
                     COUNT(CASE WHEN t.status = 'Closed' THEN 1 END) as total_closed
                 FROM tickets t
@@ -273,6 +281,18 @@ const DashboardController = {
                 ${whereString}
             `;
             const statsRes = await pool.query(statsQuery, queryParams);
+
+            // --- TAMBAHAN KUERI API: Top Kategori ---
+            const categoryQuery = `
+                SELECT t.category, COUNT(*) as total
+                FROM tickets t
+                LEFT JOIN units u_target ON t.target_unit_id = u_target.id
+                ${whereString}
+                GROUP BY t.category
+                ORDER BY total DESC
+                LIMIT 5
+            `;
+            const categoryRes = await pool.query(categoryQuery, queryParams);
 
             const recentQuery = `
                 SELECT t.id, t.ticket_number, t.category, t.issue_description, 
@@ -334,6 +354,7 @@ const DashboardController = {
             res.json({ 
                 success: true, 
                 stats: statsRes.rows[0],
+                topCategories: categoryRes.rows, // Dikirim via API JSON
                 recentTickets: recentRes.rows,
                 managers: managersRes.rows, 
                 units: unitsRes.rows, 

@@ -1,5 +1,4 @@
 <div class="space-y-6" x-data="{ search: '', openAddModal: false, unitType: 'yes', realParentId: '' }">
-    <!-- Header Page & Kolom Pencarian -->
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
             <h1 class="text-2xl font-bold text-gray-800">Manajemen Unit</h1>
@@ -7,12 +6,11 @@
         </div>
         
         <div class="flex items-center gap-3 w-full sm:w-auto">
-            <!-- Kolom Input Search -->
             <div class="relative w-full sm:w-64">
                 <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-400">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                 </span>
-                <input type="text" x-model="search" placeholder="Cari..." class="w-full pl-9 pr-4 py-2 bg-white border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none shadow-sm">
+                <input type="text" x-model="search" placeholder="Cari unit..." class="w-full pl-9 pr-4 py-2 bg-white border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none shadow-sm">
             </div>
 
             <button @click="openAddModal = true" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-lg transition shadow-sm text-sm whitespace-nowrap">
@@ -21,7 +19,6 @@
         </div>
     </div>
 
-    <!-- Alert Notifikasi -->
     <% if (locals.success) { %>
         <div class="p-4 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-lg text-sm"><%= success %></div>
     <% } %>
@@ -29,7 +26,68 @@
         <div class="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm"><%= error %></div>
     <% } %>
 
-    <!-- Tabel Data Unit dengan Support Responsive & Live Search -->
+    <div x-show="openAddModal" x-cloak class="fixed inset-0 z-50 bg-gray-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div @click.away="openAddModal = false" class="bg-white rounded-3xl shadow-2xl max-w-lg w-full p-6 md:p-8 space-y-6 border border-gray-100 text-left">
+            <div class="flex items-center justify-between border-b border-gray-100 pb-4">
+                <h3 class="text-lg font-bold text-gray-900">Tambah Unit Baru</h3>
+                <button type="button" @click="openAddModal = false" class="p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+
+            <form action="/units/create" method="POST" class="space-y-4">
+                <% if (user.role === 'superadmin') { %>
+                    <div>
+                        <label class="block text-xs font-semibold uppercase text-gray-600 mb-1">Pilih Cabang</label>
+                        <select name="branch_id" required class="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                            <option value="">-- Pilih Cabang --</option>
+                            <% branches.forEach(b => { %>
+                                <option value="<%= b.id %>"><%= b.name %> (<%= b.branch_code %>)</option>
+                            <% }) %>
+                        </select>
+                    </div>
+                <% } %>
+
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-gray-600 mb-1">Nama Unit / Manajemen</label>
+                    <input type="text" name="name" required placeholder="Contoh: Divisi IT / Unit NOC" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-gray-600 mb-1">Kode Unit (Sesuai Format Tiket)</label>
+                    <input type="text" name="unit_code" required placeholder="Contoh: NOC" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-gray-600 mb-1">Jenis Unit</label>
+                    <select name="unit_type" x-model="unitType" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                        <option value="yes">Unit Manajemen (Utama)</option>
+                        <option value="no">Sub Unit Operasional</option>
+                    </select>
+                </div>
+
+                <div x-show="unitType === 'no'">
+                    <label class="block text-xs font-semibold uppercase text-gray-600 mb-1">Induk Unit Manajemen</label>
+                    <select name="parent_unit_id" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                        <option value="">-- Pilih Unit Induk --</option>
+                        <% units.filter(u => !u.parent_unit_id).forEach(u => { %>
+                            <option value="<%= u.id %>"><%= u.name %></option>
+                        <% }) %>
+                    </select>
+                </div>
+
+                <div class="flex items-center justify-end space-x-3 pt-4 border-t border-gray-100">
+                    <button type="button" @click="openAddModal = false" class="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-semibold transition">
+                        Batal
+                    </button>
+                    <button type="submit" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold shadow-sm transition">
+                        Simpan Unit Baru
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden" 
          x-data="{ editModalOpen: false, editId: '', editName: '', editCode: '', editBranchId: '', editParentId: '', deleteModalOpen: false, deleteActionUrl: '' }">
          
@@ -69,14 +127,12 @@
                                 </td>
                                 <td class="py-4 px-6 text-center space-x-2 whitespace-nowrap">
                                     <% if (user.role === 'superadmin' || user.role === 'admin_cabang') { %>
-                                        <!-- Tombol Edit: Sekarang terhubung langsung dengan state modal di atasnya -->
                                         <button type="button" 
                                                 @click="editModalOpen = true; editId = '<%= unit.id %>'; editName = '<%= unit.name %>'; editCode = '<%= unit.unit_code %>'; editBranchId = '<%= unit.branch_id %>'; editParentId = '<%= unit.parent_unit_id || '' %>'"
                                                 class="px-3 py-1.5 bg-yellow-50 hover:bg-yellow-100 text-yellow-700 rounded-lg text-xs font-semibold transition shadow-sm">
                                             Edit
                                         </button>
 
-                                        <!-- Tombol Hapus: Memicu Modal Pop-up Kustom -->
                                         <button type="button" 
                                                 @click="deleteModalOpen = true; deleteActionUrl = '/units/delete/<%= unit.id %>'"
                                                 class="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-xs font-semibold transition shadow-sm">
@@ -93,7 +149,6 @@
             </table>
         </div>
 
-        <!-- ================= MODAL EDIT UNIT ================= -->
         <div x-show="editModalOpen" x-cloak class="fixed inset-0 z-50 bg-gray-950/80 backdrop-blur-sm flex items-center justify-center p-4">
             <div @click.away="editModalOpen = false" class="bg-white rounded-3xl shadow-2xl max-w-lg w-full p-6 md:p-8 space-y-6 border border-gray-100 text-left">
                 <div class="flex items-center justify-between border-b border-gray-100 pb-4">
@@ -124,7 +179,6 @@
                         <input type="text" name="unit_code" x-model="editCode" required class="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none">
                     </div>
 
-                    <!-- Input tersembunyi untuk parent_unit_id jika ingin dipertahankan atau diubah -->
                     <input type="hidden" name="parent_unit_id" x-model="editParentId">
 
                     <div class="flex items-center justify-end space-x-3 pt-4 border-t border-gray-100">
@@ -139,11 +193,10 @@
             </div>
         </div>
 
-        <!-- ================= MODAL KONFIRMASI HAPUS ================= -->
         <div x-show="deleteModalOpen" x-cloak class="fixed inset-0 z-50 bg-gray-950/80 backdrop-blur-sm flex items-center justify-center p-4">
             <div @click.away="deleteModalOpen = false" class="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-6 space-y-5 border border-gray-100 text-center">
                 <div class="w-12 h-12 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" data-name="Path" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
                 </div>
                 <div>
                     <h3 class="text-base font-bold text-gray-900">Konfirmasi Hapus Unit</h3>

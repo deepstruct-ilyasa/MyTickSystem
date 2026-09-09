@@ -56,7 +56,10 @@ const initializeDatabase = async () => {
                 id SERIAL PRIMARY KEY,
                 category VARCHAR(100) NOT NULL,
                 issue_description VARCHAR(255) NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                updated_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP
             );
         `);
 
