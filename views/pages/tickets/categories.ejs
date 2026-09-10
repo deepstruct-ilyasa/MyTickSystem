@@ -1,4 +1,4 @@
-<div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8 space-y-6" 
+<div class="max-w-8xl mx-auto py-2 px-1 sm:px-2 lg:px-4 space-y-4" 
      x-data="{ 
         search: '', 
         openAddModal: false, 
@@ -82,7 +82,9 @@
                         <% if (user.role === 'superadmin') { %>
                             <th class="py-3 px-4">Cabang</th>
                         <% } %>
-                        <th class="py-3 px-4 text-center">Aksi</th>
+                        <% if (['superadmin', 'admin_cabang', 'manager', 'supervisor'].includes(user.role)) { %>
+                            <th class="py-3 px-4 text-center">Aksi</th>
+                        <% } %>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-50">

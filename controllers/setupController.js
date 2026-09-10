@@ -6,7 +6,7 @@ exports.renderSetupPage = (req, res) => {
 };
 
 exports.processSetup = async (req, res) => {
-    const { company_name, admin_name, admin_nip, admin_password } = req.body;
+    const { company_name, company_address, admin_name, admin_nip, admin_password } = req.body;
     
     const client = await pool.connect();
     try {
@@ -22,7 +22,7 @@ exports.processSetup = async (req, res) => {
         const branchRes = await client.query(
             `INSERT INTO branches (branch_code, name, address) 
              VALUES ($1, $2, $3) RETURNING id`,
-            ['HQ', 'Kantor Pusat', 'Alamat Pusat System']
+            ['HO', 'Head Office', company_address]
         );
         const branchId = branchRes.rows[0].id;
 
@@ -30,7 +30,7 @@ exports.processSetup = async (req, res) => {
         const unitRes = await client.query(
             `INSERT INTO units (branch_id, name, unit_code) 
              VALUES ($1, $2, $3) RETURNING id`,
-            [branchId, 'Manajemen Sistem', 'MGT']
+            [branchId, 'Administrator Sistem', 'SA']
         );
         const unitId = unitRes.rows[0].id;
 

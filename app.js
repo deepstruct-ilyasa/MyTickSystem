@@ -3,6 +3,7 @@ require('./config/db.js');
 const express = require('express');
 const path = require('path');
 const session = require('express-session');
+const pool = require('./config/db');
 
 // Import Utility & Middleware
 const initializeDatabase = require('./utils/initDb');
@@ -64,6 +65,76 @@ app.use('/branches', branchRoutes);
 app.use('/units', unitRoutes);
 app.use('/users', userRoutes);
 app.use('/profile', profileRoutes);
+
+// ==========================================
+// 5.1 TAMBAHAN ENDPOINT API NOTIFIKASI
+// ==========================================
+// 1. API: Ambil daftar notifikasi user yang login
+app.get('/api/notifications', async (req, res) => {
+    try {
+        if (!req.session || !req.session.user) {
+            return res.status(401).json({ success: false, error: 'Unauthorized' });
+        }
+        
+        const userId = req.session.user.id;
+        
+        const notifs = await pool.query(
+            `SELECT * FROM notifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT 10`,
+            [userId]
+        );
+        
+        const unreadCount = await pool.query(
+            `SELECT COUNT(*) FROM notifications WHERE user_id = $1 AND is_read = FALSE`,
+            [userId]
+        );
+
+        res.json({
+            success: true,
+            notifications: notifs.rows,
+            unreadCount: parseInt(unreadCount.rows[0].count)
+        });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// 2. API: Tandai semua notifikasi sudah dibaca
+app.post('/api/notifications/read-all', async (req, res) => {
+    try {
+        if (!req.session || !req.session.user) {
+            return res.status(401).json({ success: false, error: 'Unauthorized' });
+        }
+
+        const userId = req.session.user.id;
+        await pool.query(`UPDATE notifications SET is_read = TRUE WHERE user_id = $1`, [userId]);
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// 3. API: Tandai SATU notifikasi spesifik sudah dibaca berdasarkan ID
+app.post('/api/notifications/:id/read', async (req, res) => {
+    try {
+        if (!req.session || !req.session.user) {
+            return res.status(401).json({ success: false, error: 'Unauthorized' });
+        }
+
+        const notifId = req.params.id;
+        const userId = req.session.user.id;
+
+        // Update status is_read hanya untuk notifikasi milik user tersebut yang dipilih
+        await pool.query(
+            `UPDATE notifications SET is_read = TRUE WHERE id = $1 AND user_id = $2`,
+            [notifId, userId]
+        );
+
+        res.json({ success: true });
+    } catch (err) {
+        console.error('[API Error] Gagal update single notification:', err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
 
 // ==========================================
 // 6. JALANKAN SERVER

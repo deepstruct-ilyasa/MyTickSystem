@@ -46,7 +46,8 @@ const initializeDatabase = async () => {
                 nip VARCHAR(100) UNIQUE NOT NULL,
                 name VARCHAR(255) NOT NULL,
                 password VARCHAR(255) NOT NULL,
-                role VARCHAR(50) NOT NULL
+                role VARCHAR(50) NOT NULL,
+                profile_picture VARCHAR(255)
             );
         `);
 
@@ -70,7 +71,7 @@ const initializeDatabase = async () => {
                 ticket_number VARCHAR(100) UNIQUE NOT NULL,
                 branch_id INTEGER REFERENCES branches(id) ON DELETE RESTRICT,
                 creator_id INTEGER REFERENCES users(id) ON DELETE RESTRICT,
-creator_unit_id INTEGER REFERENCES units(id) ON DELETE RESTRICT,
+                creator_unit_id INTEGER REFERENCES units(id) ON DELETE RESTRICT,
                 target_unit_id INTEGER REFERENCES units(id) ON DELETE RESTRICT,
                 category VARCHAR(100) NOT NULL,
                 issue_description VARCHAR(255) NOT NULL,
@@ -107,6 +108,25 @@ creator_unit_id INTEGER REFERENCES units(id) ON DELETE RESTRICT,
                 last_sequence INTEGER NOT NULL,
                 UNIQUE(branch_code, unit_code, date)
             );
+        `);
+
+        // 9. Tabel Notifikasi In-App (Fitur Loneng Navbar)
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS notifications (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                ticket_id INTEGER REFERENCES tickets(id) ON DELETE CASCADE,
+                title VARCHAR(255) NOT NULL,
+                message TEXT NOT NULL,
+                is_read BOOLEAN DEFAULT FALSE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+
+        // Indeks untuk mempercepat pencarian data notifikasi user
+        await client.query(`
+            CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id);
+            CREATE INDEX IF NOT EXISTS idx_notifications_is_read ON notifications(is_read);
         `);
 
         await client.query('COMMIT'); // Simpan semua perubahan

@@ -1,6 +1,7 @@
 const pool = require('../config/db');
 const fs = require('fs');
 const path = require('path');
+const { createNotification, notifyHierarchical } = require('../utils/notificationHelper');
 
 const TicketController = {
     async renderCreateForm(req, res) {
@@ -212,6 +213,16 @@ const TicketController = {
             `, [ticketId, user.id]);
 
             await client.query('COMMIT');
+
+            await notifyHierarchical(
+                target_unit_id, 
+                user.branch_id,
+                ticketId, 
+                'Tiket Masuk Baru', 
+                `Ada tiket baru (${ticketNumber}) dengan prioritas ${priority} ditujukan ke unit Anda.`,
+                user.id
+            );
+
             res.redirect('/tickets/create?success=Tiket berhasil dibuat dengan nomor ' + ticketNumber);
 
         } catch (error) {
@@ -295,9 +306,8 @@ const TicketController = {
             const { status: newStatus, message, new_target_unit_id } = req.body;
             const user = req.session.user;
 
-            // [IMPLEMENTASI MUTASI] Mengambil t.creator_unit_id langsung dari tabel tickets
             const currentTicketRes = await client.query(`
-                SELECT t.status, t.target_unit_id, t.creator_unit_id
+                SELECT t.status, t.target_unit_id, t.creator_unit_id, t.ticket_number, t.creator_id, t.branch_id
                 FROM tickets t
                 WHERE t.id = $1
             `, [ticketId]);
@@ -309,7 +319,9 @@ const TicketController = {
             const currentStatus = ticket.status;
 
             if (user.role !== 'superadmin' && currentStatus !== 'Closed') {
-                if (parseInt(user.unit_id) !== parseInt(ticket.target_unit_id)) {
+                const isTransferringAction = (newStatus === 'Transferred');
+
+                if (!isTransferringAction && parseInt(user.unit_id) !== parseInt(ticket.target_unit_id)) {
                     return res.redirect(`/tickets/${ticketId}?error=Anda tidak memiliki hak akses karena tiket sudah dialihkan ke unit lain.`);
                 }
             }
@@ -348,6 +360,12 @@ const TicketController = {
 
             await client.query('BEGIN');
 
+            let notificationTargetUnitId = null;
+            let notificationBranchId = null;
+            let creatorNotificationMessage = '';
+            let hierarchicalNotificationTitle = '';
+            let hierarchicalNotificationMessage = '';
+
             if (newStatus === 'Transferred') {
                 await client.query(`
                     UPDATE tickets 
@@ -355,14 +373,20 @@ const TicketController = {
                     WHERE id = $3
                 `, [targetStatusToSave, new_target_unit_id, ticketId]);
 
-                const targetUnitRes = await client.query('SELECT name FROM units WHERE id = $1', [new_target_unit_id]);
+                const targetUnitRes = await client.query('SELECT name, branch_id FROM units WHERE id = $1', [new_target_unit_id]);
                 const unitName = targetUnitRes.rows[0]?.name || 'Unit Lain';
+                notificationBranchId = targetUnitRes.rows[0]?.branch_id || ticket.branch_id;
+                notificationTargetUnitId = new_target_unit_id;
 
                 const logMessage = `Tiket ditransfer / dieskalasi ke Unit: ${unitName}. Status direset ke Open. Alasan: ${message}`;
                 await client.query(`
                     INSERT INTO ticket_logs (ticket_id, actor_id, action, message, created_at)
                     VALUES ($1, $2, 'TRANSFERRED', $3, CURRENT_TIMESTAMP)
                 `, [ticketId, user.id, logMessage]);
+
+                creatorNotificationMessage = `Tiket Anda (${ticket.ticket_number}) ditransfer ke Unit: ${unitName} (Status: Open).`;
+                hierarchicalNotificationTitle = 'Tiket Eskalasi Masuk';
+                hierarchicalNotificationMessage = `Tiket dialihkan (${ticket.ticket_number}) dan ditujukan ke unit Anda. Silakan segera ditindaklanjuti.`;
 
             } else {
                 await client.query(`
@@ -373,9 +397,32 @@ const TicketController = {
                     INSERT INTO ticket_logs (ticket_id, actor_id, action, message, created_at)
                     VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
                 `, [ticketId, user.id, targetStatusToSave.toUpperCase(), message]);
+
+                creatorNotificationMessage = `Tiket Anda (${ticket.ticket_number}) sekarang berstatus: ${targetStatusToSave}.`;
             }
 
             await client.query('COMMIT');
+
+            // 1. Kirim notifikasi ke pembuat tiket (creator)
+            await createNotification(
+                ticket.creator_id,
+                ticketId,
+                newStatus === 'Transferred' ? 'Tiket Ditransfer' : 'Pembaruan Status Tiket',
+                creatorNotificationMessage
+            );
+
+            // 2. Jika ditransfer, kirim notifikasi hierarki ke unit tujuan baru
+            if (newStatus === 'Transferred' && notificationTargetUnitId) {
+                await notifyHierarchical(
+                    notificationTargetUnitId,
+                    notificationBranchId,
+                    ticketId,
+                    hierarchicalNotificationTitle,
+                    hierarchicalNotificationMessage,
+                    user.id
+                );
+            }
+
             res.redirect(`/tickets/${ticketId}?success=Status tiket berhasil diperbarui.`);
         } catch (error) {
             await client.query('ROLLBACK');

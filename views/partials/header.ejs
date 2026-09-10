@@ -9,27 +9,134 @@
         Sistem Ticketing
     </div>
 
-    <div class="relative" x-data="{ dropdownOpen: false }">
-        <button @click="dropdownOpen = !dropdownOpen" class="flex items-center space-x-3 focus:outline-none">
-            <div class="w-9 h-9 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold overflow-hidden">
-                <% if (user.profile_picture) { %>
-                    <img src="/uploads/profile/<%= user.profile_picture %>" alt="Avatar" class="w-full h-full object-cover">
-                <% } else { %>
-                    <span><%= user.name.charAt(0).toUpperCase() %></span>
-                <% } %>
-            </div>
-            <span id="userNameDisplay" class="text-sm font-medium text-gray-700 text-left hidden md:block"><%= user.name %></span>
-            <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-        </button>
+    <!-- Container Kanan: Notifikasi (Lonceng) & Profil User -->
+    <div class="flex items-center space-x-4">
+        
+        <!-- Ikon Loneng Notifikasi di Navbar -->
+        <div class="relative" x-data="notificationDropdown()">
+            <button @click="toggleDropdown()" class="relative p-2 text-gray-600 hover:text-blue-600 hover:bg-gray-100 rounded-full transition focus:outline-none">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
+                </svg>
+                
+                <!-- Badge Angka Notifikasi Belum Dibaca -->
+                <span x-show="unreadCount > 0" x-text="unreadCount" class="absolute top-1 right-1 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full"></span>
+            </button>
 
-        <div x-show="dropdownOpen" x-cloak @click.away="dropdownOpen = false" 
-            class="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-50">
-            <div class="px-4 py-2 border-b border-gray-100">
-                <p class="text-xs text-gray-500">Cabang: <span class="font-medium text-gray-700"><%= user.branch_name || 'Pusat' %></span></p>
-                <p class="text-xs text-gray-500 mt-0.5">Unit: <span class="font-medium text-gray-700"><%= user.unit_name || 'Manajemen' %></span></p>
+            <!-- Dropdown Panel Notifikasi -->
+            <div x-show="open" @click.away="open = false" x-cloak class="absolute right-[-70px] sm:right-0 mt-2 w-80 sm:w-96 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden z-50 transform transition-all">
+                <div class="px-4 py-3 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
+                    <h3 class="font-bold text-gray-800 text-sm">Notifikasi</h3>
+                    <button @click="markAllAsRead()" class="text-xs text-blue-600 hover:underline font-semibold">Tandai semua dibaca</button>
+                </div>
+
+                <div class="max-h-80 overflow-y-auto divide-y divide-gray-100">
+                    <template x-if="notifications.length === 0">
+                        <div class="py-8 text-center text-gray-400 text-xs">Belum ada notifikasi baru.</div>
+                    </template>
+
+                    <template x-for="notif in notifications" :key="notif.id">
+                        <!-- Tambahkan @click.prevent untuk menangani AJAX update status sebelum pindah halaman -->
+                        <a href="#" @click.prevent="markAsReadAndRedirect(notif.id, notif.ticket_id)" 
+                        class="block p-4 hover:bg-gray-50 transition" 
+                        :class="{ 'bg-blue-50/50 font-semibold': !notif.is_read, 'bg-white text-gray-600': notif.is_read }">
+                            <div class="flex items-center justify-between mb-1">
+                                <span class="text-xs text-gray-900" :class="{ 'font-bold': !notif.is_read }" x-text="notif.title"></span>
+                                <span class="text-[10px] text-gray-400" x-text="new Date(notif.created_at).toLocaleTimeString('id-ID', {hour: '2-digit', minute:'2-digit'})"></span>
+                            </div>
+                            <p class="text-xs text-gray-600 line-clamp-2" x-text="notif.message"></p>
+                        </a>
+                    </template>
+                </div>
             </div>
-            <a href="/profile" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition">Profil Saya</a>
-            <a href="/logout" class="block px-4 py-2 text-sm text-red-600 hover:bg-gray-100 transition">Keluar (Logout)</a>
         </div>
+
+        <!-- DROPDOWN PROFIL USER -->
+        <div class="relative" x-data="{ dropdownOpen: false }">
+            <button @click="dropdownOpen = !dropdownOpen" class="flex items-center space-x-3 focus:outline-none">
+                <div class="w-9 h-9 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold overflow-hidden">
+                    <% if (user.profile_picture) { %>
+                        <img src="/uploads/profile/<%= user.profile_picture %>?v=<%= Date.now() %>" alt="Avatar" class="w-full h-full object-cover">
+                    <% } else { %>
+                        <span><%= user.name.charAt(0).toUpperCase() %></span>
+                    <% } %>
+                </div>
+                <span id="userNameDisplay" class="text-sm font-medium text-gray-700 text-left hidden md:block"><%= user.name %></span>
+                <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+            </button>
+
+            <div x-show="dropdownOpen" x-cloak @click.away="dropdownOpen = false" 
+                class="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-50">
+                <div class="px-4 py-2 border-b border-gray-100">
+                    <p class="text-xs text-gray-500">Cabang: <span class="font-medium text-gray-700"><%= user.branch_name || 'Pusat' %></span></p>
+                    <p class="text-xs text-gray-500 mt-0.5">Unit: <span class="font-medium text-gray-700"><%= user.unit_name || 'Manajemen' %></span></p>
+                </div>
+                <a href="/profile" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition">Profil Saya</a>
+                <a href="/logout" class="block px-4 py-2 text-sm text-red-600 hover:bg-gray-100 transition">Keluar (Logout)</a>
+            </div>
+        </div>
+
     </div>
 </header>
+
+<!-- SCRIPT PENDUKUNG NOTIFIKASI (Polling otomatis setiap 30 detik) -->
+<script>
+    function notificationDropdown() {
+        return {
+            open: false,
+            notifications: [],
+            unreadCount: 0,
+            toggleDropdown() {
+                this.open = !this.open;
+                if (this.open) {
+                    this.fetchNotifications();
+                }
+            },
+            fetchNotifications() {
+                fetch('/api/notifications')
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.success) {
+                            this.notifications = data.notifications;
+                            this.unreadCount = data.unreadCount;
+                        }
+                    });
+            },
+            // Fungsi saat SATU notifikasi diklik
+            markAsReadAndRedirect(notifId, ticketId) {
+                fetch(`/api/notifications/${notifId}/read`, { 
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        // Redirect langsung ke halaman detail tiket setelah database ter-update
+                        window.location.href = `/tickets/${ticketId}`;
+                    }
+                })
+                .catch(err => {
+                    // Fallback jika fetch error, tetap arahkan ke tiket
+                    window.location.href = `/tickets/${ticketId}`;
+                });
+            },
+            // Fungsi untuk tombol "Tandai semua dibaca"
+            markAllAsRead() {
+                fetch('/api/notifications/read-all', { method: 'POST' })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.success) {
+                            this.unreadCount = 0;
+                            this.notifications.forEach(n => n.is_read = true);
+                        }
+                    });
+            },
+            init() {
+                this.fetchNotifications();
+                setInterval(() => {
+                    this.fetchNotifications();
+                }, 30000);
+            }
+        }
+    }
+</script>

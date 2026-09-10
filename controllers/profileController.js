@@ -2,6 +2,7 @@ const pool = require('../config/db');
 const bcrypt = require('bcryptjs');
 const fs = require('fs');
 const path = require('path');
+const sharp = require('sharp'); // <-- Import sharp untuk auto-compress
 
 // 1. Tampilkan Halaman Edit Profil Sendiri
 exports.getProfile = async (req, res) => {
@@ -19,7 +20,7 @@ exports.getProfile = async (req, res) => {
         res.render('layouts/main', {
             title: 'Profil Saya - Ticketing System',
             user: req.session.user,
-            partialsPath: '../pages/profile', // <-- Kembalikan ke path asal yang benar
+            partialsPath: '../pages/profile',
             profileUser: rows[0],
             error: req.query.error || null,
             success: req.query.success || null
@@ -30,24 +31,43 @@ exports.getProfile = async (req, res) => {
     }
 };
 
-// 2. Proses Update Profil (Nama, Password, & Foto Profil)
+// 2. Proses Update Profil (Nama, Password, & Auto-Convert Foto Profil via Sharp)
 exports.updateProfile = async (req, res) => {
     const userId = req.session.user.id;
     const { name, current_password, new_password, confirm_password } = req.body;
-    const profilePicture = req.file ? req.file.filename : null;
 
     try {
         const { rows } = await pool.query('SELECT * FROM users WHERE id = $1', [userId]);
         const user = rows[0];
 
-        // 1. Jika ada upload foto baru, hapus foto lama jika ada
-        if (profilePicture) {
+        // 1. Jika ada upload foto baru, proses kompresi otomatis menggunakan Sharp
+        if (req.file) {
+            const nip = req.session.user && req.session.user.nip ? req.session.user.nip : 'unknown';
+            const branchCode = req.session.user && req.session.user.branch_code ? req.session.user.branch_code : 'HQ';
+            
+            // Format nama file akhir konsisten (.jpg agar ringan dan universal)
+            const customFilename = `profile-${nip}-${branchCode}.jpg`;
+            const uploadDir = path.join(__dirname, '../public/uploads/profile');
+            
+            if (!fs.existsSync(uploadDir)) {
+                fs.mkdirSync(uploadDir, { recursive: true });
+            }
+            const outputPath = path.join(uploadDir, customFilename);
+
+            // Hapus foto lama jika ada
             if (user.profile_picture) {
-                const oldPath = path.join(__dirname, '../public/uploads/profile/', user.profile_picture);
+                const oldPath = path.join(uploadDir, user.profile_picture);
                 if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
             }
-            await pool.query(`UPDATE users SET profile_picture = $1 WHERE id = $2`, [profilePicture, userId]);
-            req.session.user.profile_picture = profilePicture;
+
+            // AUTO-CONVERT & COMPRESS: Ubah ukuran jadi 400x400px dan kompres kualitas JPEG 80% (dijamin di bawah 2MB)
+            await sharp(req.file.buffer)
+                .resize(400, 400, { fit: 'cover' })
+                .jpeg({ quality: 80 })
+                .toFile(outputPath);
+
+            await pool.query(`UPDATE users SET profile_picture = $1 WHERE id = $2`, [customFilename, userId]);
+            req.session.user.profile_picture = customFilename;
         }
 
         // 2. Logika ganti password
@@ -66,7 +86,7 @@ exports.updateProfile = async (req, res) => {
         // 3. Update Nama
         if (name) {
             await pool.query(`UPDATE users SET name = $1 WHERE id = $2`, [name, userId]);
-            req.session.user.name = name; // Update session secara langsung
+            req.session.user.name = name;
         }
 
         // Kirim response JSON balik ke frontend
