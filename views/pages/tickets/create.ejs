@@ -1,4 +1,4 @@
-<div class="max-w-4xl mx-auto py-6 px-4 sm:px-6 lg:px-8" x-data="ticketForm()">
+<div class="max-w-4xl mx-auto py-1 px-2 sm:px-1 lg:px-2" x-data="ticketForm()">
     <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 md:p-8">
         
         <!-- Header Halaman -->
@@ -92,8 +92,12 @@
 
             <!-- Baris 4: Lampiran -->
             <div x-data="{ previewUrl: null, fileName: '', openModal: false }" class="space-y-4">
-                <label class="block text-xs font-semibold uppercase text-gray-600">Lampiran / Foto Kendala (Opsional)</label>
+                <label class="block text-xs font-semibold uppercase text-gray-600">Lampiran (Opsional)</label>
                 
+                <!-- Input File Universal yang disembunyikan -->
+                <input type="file" name="attachment" x-ref="universalInput" accept="image/*,.pdf" class="hidden"
+                       @change="if($event.target.files[0]) { fileName = $event.target.files[0].name; previewUrl = URL.createObjectURL($event.target.files[0]); }">
+
                 <!-- Kotak Upload Unik yang Fleksibel -->
                 <div class="p-5 border-2 border-dashed border-gray-300 hover:border-blue-500 rounded-2xl bg-gray-50/50 transition flex flex-col items-center justify-center text-center relative group">
                     
@@ -105,26 +109,24 @@
                             </div>
                             <div>
                                 <p class="text-xs font-bold text-gray-700">Lampirkan Foto atau Dokumen</p>
-                                <p class="text-[11px] text-gray-400 mt-0.5">Pilih file dari galeri atau ambil foto langsung menggunakan kamera perangkat.</p>
+                                <p class="text-[11px] text-gray-400 mt-0.5">Pilih file dari galeri atau ambil foto langsung menggunakan kamera.</p>
                             </div>
                             
                             <!-- Tombol Aksi Berdampingan -->
                             <div class="flex flex-wrap justify-center gap-2 pt-2">
-                                <!-- Tombol Galeri -->
-                                <label class="inline-flex items-center px-3.5 py-2 bg-white border border-gray-300 hover:bg-gray-100 text-gray-700 rounded-xl text-xs font-semibold cursor-pointer shadow-sm transition">
+                                <!-- Tombol Galeri (Tanpa capture) -->
+                                <button type="button" @click="$refs.universalInput.removeAttribute('capture'); $refs.universalInput.click()" 
+                                        class="inline-flex items-center px-3.5 py-2 bg-white border border-gray-300 hover:bg-gray-100 text-gray-700 rounded-xl text-xs font-semibold cursor-pointer shadow-sm transition">
                                     <svg class="w-4 h-4 mr-1.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
                                     <span>📁 Pilih Galeri</span>
-                                    <input type="file" name="attachment" accept="image/*,.pdf" class="hidden"
-                                           @change="if($event.target.files[0]) { fileName = $event.target.files[0].name; previewUrl = URL.createObjectURL($event.target.files[0]); }">
-                                </label>
+                                </button>
 
-                                <!-- Tombol Kamera Langsung -->
-                                <label class="inline-flex items-center px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold cursor-pointer shadow-sm transition">
+                                <!-- Tombol Kamera Langsung (Menambahkan atribut capture=environment agar langsung buka kamera HP) -->
+                                <button type="button" @click="$refs.universalInput.setAttribute('capture', 'environment'); $refs.universalInput.click()" 
+                                        class="inline-flex items-center px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold cursor-pointer shadow-sm transition">
                                     <svg class="w-4 h-4 mr-1.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
                                     <span>📸 Buka Kamera</span>
-                                    <input type="file" name="attachment" accept="image/*" capture="environment" class="hidden"
-                                           @change="if($event.target.files[0]) { fileName = $event.target.files[0].name; previewUrl = URL.createObjectURL($event.target.files[0]); }">
-                                </label>
+                                </button>
                             </div>
                         </div>
                     </template>
@@ -145,7 +147,7 @@
                                 </div>
                             </div>
 
-                            <button type="button" @click="previewUrl = null; fileName = ''; $el.closest('form').querySelectorAll('input[type=file]').forEach(i => i.value = '')" 
+                            <button type="button" @click="previewUrl = null; fileName = ''; $refs.universalInput.value = ''" 
                                     class="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl text-xs font-semibold transition flex items-center shadow-sm">
                                 <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                                 Ganti / Hapus
@@ -154,7 +156,7 @@
                     </template>
                 </div>
 
-                <p class="text-xs text-gray-400">Maksimal 2MB. Format: JPG, PNG, atau PDF (File otomatis dinamai sesuai nomor tiket).</p>
+                <p class="text-xs text-gray-400">Maksimal 2MB. Format: JPG, PNG, atau PDF.</p>
 
                 <!-- MODAL POPUP PREVIEW FULL-SCREEN -->
                 <div x-show="openModal" x-cloak 
@@ -163,7 +165,7 @@
                     <div class="relative bg-white rounded-3xl shadow-2xl max-w-3xl w-full p-4 overflow-hidden border border-gray-100">
                         <!-- Header Modal -->
                         <div class="flex items-center justify-between pb-3 border-b border-gray-100 mb-3">
-                            <h3 class="text-sm font-bold text-gray-800">Pratinjau Foto Lampiran</h3>
+                            <h3 class="text-sm font-bold text-gray-800">Pratinjau Lampiran</h3>
                             <button type="button" @click="openModal = false" class="p-1.5 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition">
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                             </button>

@@ -1,24 +1,7 @@
 const multer = require('multer');
 const path = require('path');
-const fs = require('fs');
 
-// Pastikan folder tujuan ada
-const uploadDir = path.join(__dirname, '../public/uploads/tickets');
-if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
-}
-
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, uploadDir);
-    },
-    filename: (req, file, cb) => {
-        // Nama file sementara sebelum nomor tiket dibuat, atau kita tangani nanti di controller.
-        // Format aman: timestamp-random.ext
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, 'temp-' + uniqueSuffix + path.extname(file.originalname));
-    }
-});
+const storage = multer.memoryStorage();
 
 const fileFilter = (req, file, cb) => {
     const allowedTypes = /jpeg|jpg|png|pdf/;
@@ -34,7 +17,7 @@ const fileFilter = (req, file, cb) => {
 
 const upload = multer({
     storage: storage,
-    limits: { fileSize: 2 * 1024 * 1024 }, // Maksimal 2MB
+    limits: { fileSize: 25 * 1024 * 1024 }, 
     fileFilter: fileFilter
 });
 

@@ -2,6 +2,7 @@ const pool = require('../config/db');
 const fs = require('fs');
 const path = require('path');
 const { createNotification, notifyHierarchical } = require('../utils/notificationHelper');
+const sharp = require('sharp');
 
 const TicketController = {
     async renderCreateForm(req, res) {
@@ -12,8 +13,10 @@ const TicketController = {
                 return res.redirect('/tickets?error=Admin Cabang tidak dapat membuat ticket.');
             }
 
+            // [PERBAIKAN] Kategori yang muncul saat buat tiket difilter sesuai branch_id user yang login
             const categoryQuery = await pool.query(
-                'SELECT category, issue_description FROM ticket_categories ORDER BY category ASC'
+                'SELECT category, issue_description FROM ticket_categories WHERE branch_id = $1 ORDER BY category ASC',
+                [user.branch_id]
             );
             
             const unitQuery = await pool.query(`
@@ -42,7 +45,6 @@ const TicketController = {
         try {
             const user = req.session.user;
 
-            // 1. Kueri Dasar Inbox (Masuk)
             let inboxQuery = `
                 SELECT t.id, t.ticket_number, t.category, t.issue_description, 
                 t.priority, t.status, t.created_at,
@@ -58,7 +60,6 @@ const TicketController = {
             `;
             let inboxParams = [];
 
-            // 2. Kueri Dasar Outbox (Keluar) - Berbasis Unit Struktural
             let outboxQuery = `
                 SELECT t.id, t.ticket_number, t.category, t.issue_description, 
                 t.priority, t.status, t.created_at,
@@ -74,9 +75,8 @@ const TicketController = {
             `;
             let outboxParams = [];
 
-            // 3. FILTER STRUKTURAL (ANTI-MUTASI)
             if (user.role === 'superadmin') {
-                // Superadmin melihat semua tiket masuk & keluar global
+                // Superadmin melihat semua
             } else if (user.role === 'admin_cabang') {
                 inboxQuery += ' WHERE t.branch_id = $1';
                 inboxParams = [user.branch_id];
@@ -84,7 +84,6 @@ const TicketController = {
                 outboxQuery += ' WHERE t.branch_id = $1';
                 outboxParams = [user.branch_id];
             } else if (user.role === 'manager' || user.role === 'supervisor') {
-                // Manager/SPV mencakup unitnya dan sub-unitnya secara struktural
                 inboxQuery += ' WHERE t.target_unit_id IN (SELECT id FROM units WHERE id = $1 OR parent_unit_id = $1)';
                 inboxParams = [user.unit_id];
                 
@@ -98,7 +97,6 @@ const TicketController = {
                 outboxParams = [user.unit_id];
             }
 
-            // 4. Eksekusi Kueri
             inboxQuery += ' ORDER BY t.created_at DESC';
             outboxQuery += ' ORDER BY t.created_at DESC';
             
@@ -173,16 +171,33 @@ const TicketController = {
 
             let attachmentUrl = null;
             if (req.file) {
-                const ext = path.extname(req.file.originalname);
-                const newFilename = `${ticketNumber}-Lampiran${ext}`;
-                const oldPath = req.file.path;
-                const newPath = path.join(__dirname, '../public/uploads/tickets', newFilename);
+                const uploadDir = path.join(__dirname, '../public/uploads/tickets');
+                
+                // Buat folder otomatis jika belum ada
+                if (!fs.existsSync(uploadDir)) {
+                    fs.mkdirSync(uploadDir, { recursive: true });
+                }
 
-                fs.renameSync(oldPath, newPath);
-                attachmentUrl = `/uploads/tickets/${newFilename}`;
+                const mimeType = req.file.mimetype;
+                const finalExt = mimeType === 'application/pdf' ? '.pdf' : '.jpg';
+                const newFilename = `${ticketNumber}-Lampiran${finalExt}`;
+                const outputPath = path.join(uploadDir, newFilename);
+
+                // Jika berupa gambar, kompres otomatis via Sharp (< 2MB)
+                if (mimeType.startsWith('image/')) {
+                    await sharp(req.file.buffer)
+                        .resize(1200, 1200, { fit: 'inside', withoutEnlargement: true })
+                        .jpeg({ quality: 80 })
+                        .toFile(outputPath);
+                    
+                    attachmentUrl = `/uploads/tickets/${newFilename}`;
+                } else if (mimeType === 'application/pdf') {
+                    // Jika PDF, simpan langsung dari buffer RAM
+                    fs.writeFileSync(outputPath, req.file.buffer);
+                    attachmentUrl = `/uploads/tickets/${newFilename}`;
+                }
             }
 
-            // [IMPLEMENTASI MUTASI] Menyimpan creator_unit_id secara permanen
             const insertTicketQuery = `
                 INSERT INTO tickets (
                     ticket_number, branch_id, creator_unit_id, creator_id, target_unit_id, 
@@ -195,7 +210,7 @@ const TicketController = {
             const ticketResult = await client.query(insertTicketQuery, [
                 ticketNumber,
                 user.branch_id,
-                user.unit_id, // creator_unit_id statis anti-mutasi
+                user.unit_id,
                 user.id,
                 target_unit_id,
                 category,
@@ -227,9 +242,10 @@ const TicketController = {
 
         } catch (error) {
             await client.query('ROLLBACK');
-            if (req.file && fs.existsSync(req.file.path)) {
-                fs.unlinkSync(req.file.path);
-            }
+            
+            // Catatan: Karena menggunakan memoryStorage, file tidak masuk ke disk terlebih dahulu, 
+            // jadi perintah fs.unlinkSync untuk req.file sudah tidak diperlukan lagi.
+            
             console.error('[TicketController] Gagal menyimpan tiket:', error);
             res.redirect('/tickets/create?error=Gagal menyimpan tiket. Silakan coba lagi.');
         } finally {
@@ -242,7 +258,6 @@ const TicketController = {
             const ticketId = req.params.id;
             const user = req.session.user;
 
-            // [IMPLEMENTASI MUTASI] Mengambil unit asal dari t.creator_unit_id, bukan profil live user
             const ticketQuery = await pool.query(`
                 SELECT t.*, 
                 u_creator.name as creator_name, u_creator.nip as creator_nip,
@@ -403,7 +418,6 @@ const TicketController = {
 
             await client.query('COMMIT');
 
-            // 1. Kirim notifikasi ke pembuat tiket (creator)
             await createNotification(
                 ticket.creator_id,
                 ticketId,
@@ -411,7 +425,6 @@ const TicketController = {
                 creatorNotificationMessage
             );
 
-            // 2. Jika ditransfer, kirim notifikasi hierarki ke unit tujuan baru
             if (newStatus === 'Transferred' && notificationTargetUnitId) {
                 await notifyHierarchical(
                     notificationTargetUnitId,
@@ -436,6 +449,8 @@ const TicketController = {
     async getCategories(req, res) {
         try {
             const user = req.session.user;
+            
+            // [PERBAIKAN] Mengembalikan JOIN branches agar master kategori menampilkan nama cabang dengan benar
             let query = `
                 SELECT tc.*, b.name as branch_name, 
                        u_creator.name as creator_name, 
@@ -456,7 +471,6 @@ const TicketController = {
             query += ` ORDER BY b.name ASC, tc.category ASC, tc.issue_description ASC`;
             const categoriesRes = await pool.query(query, params);
             
-            // Ambil daftar cabang untuk pilihan form (khusus superadmin)
             const branchesRes = await pool.query('SELECT id, name FROM branches ORDER BY name ASC');
 
             res.render('layouts/main', {
@@ -485,13 +499,12 @@ const TicketController = {
 
             const { category, issue_description, branch_id } = req.body;
             const targetBranchId = user.role === 'superadmin' ? branch_id : user.branch_id;
-            const userId = user.id || user.user_id; // Ambil ID user yang login
+            const userId = user.id || user.user_id;
 
             if (!targetBranchId) {
                 return res.redirect('/tickets/categories?error=Cabang tidak valid.');
             }
 
-            // Simpan data beserta created_by dan created_at secara manual
             await pool.query(`
                 INSERT INTO ticket_categories (branch_id, category, issue_description, created_by, created_at)
                 VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
@@ -515,10 +528,9 @@ const TicketController = {
 
             const catId = req.params.id;
             const { category, issue_description, branch_id } = req.body;
-            let targetBranchId = user.role === 'superadmin' ? branch_id : user.branch_id;
-            const userId = user.id || user.user_id; // Ambil ID user yang mengedit
+            const targetBranchId = user.role === 'superadmin' ? branch_id : user.branch_id;
+            const userId = user.id || user.user_id;
 
-            // Perbarui data beserta updated_by dan updated_at secara manual
             await pool.query(`
                 UPDATE ticket_categories 
                 SET branch_id = $1, category = $2, issue_description = $3, updated_by = $4, updated_at = CURRENT_TIMESTAMP

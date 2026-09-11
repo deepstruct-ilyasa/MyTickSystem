@@ -55,6 +55,7 @@ const initializeDatabase = async () => {
         await client.query(`
             CREATE TABLE IF NOT EXISTS ticket_categories (
                 id SERIAL PRIMARY KEY,
+                branch_id INTEGER REFERENCES branches(id) ON DELETE CASCADE,
                 category VARCHAR(100) NOT NULL,
                 issue_description VARCHAR(255) NOT NULL,
                 created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
