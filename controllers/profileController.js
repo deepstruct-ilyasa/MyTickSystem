@@ -18,7 +18,7 @@ exports.getProfile = async (req, res) => {
         );
 
         res.render('layouts/main', {
-            title: 'Profil Saya - Ticketing System',
+            title: 'Profil - MyTickSystem',
             user: req.session.user,
             partialsPath: '../pages/profile',
             profileUser: rows[0],

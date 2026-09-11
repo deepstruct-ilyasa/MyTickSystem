@@ -3,7 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><%= typeof title !== 'undefined' ? title : 'Ticketing System' %></title>
+    <title><%= typeof title !== 'undefined' ? title : 'MyTickSystem' %></title>
+
+    <link rel="icon" type="image/png" href="/logo.png">
     
     <!-- Tailwind CSS Lokal (Hasil Kompilasi CLI) -->
     <link href="/css/output.css" rel="stylesheet">
@@ -13,7 +15,7 @@
     
     <!-- Tom Select CSS Lokal -->
     <link href="/vendor/tom-select/tom-select.bootstrap5.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css">
+    <link href="/vendor/cropperjs/cropper.min.css" rel="stylesheet">
         
     <!-- SweetAlert2 Lokal -->
     <script src="/vendor/sweetalert2.all.min.js"></script>
@@ -45,7 +47,7 @@
     <!-- Tom Select & Chart.js Lokal -->
     <script src="/vendor/tom-select/tom-select.complete.min.js"></script>
     <script src="/vendor/chart.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
+    <script src="/vendor/cropperjs/cropper.min.js"></script>
 
     <!-- Global SweetAlert2 Notification & URL Cleaner Handler -->
     <script>
@@ -80,7 +82,7 @@
             // ==========================================
             // ⭐ MASTER GLOBAL POLLING (SYNC SERENTAK) ⭐
             // ==========================================
-            const SYNC_INTERVAL = 20000; // 20 detik (ideal & aman untuk server)
+            const SYNC_INTERVAL = 5000; // 20 detik (ideal & aman untuk server)
 
             setInterval(() => {
                 // 1. Sinkronisasi Notifikasi (Loneng Navbar di Header)

@@ -16,7 +16,7 @@ exports.listBranches = async (req, res) => {
         const { rows } = await pool.query(query, params);
 
         res.render('layouts/main', {
-            title: 'Manajemen Cabang - Ticketing System',
+            title: 'Manajemen Cabang - MyTickSystem',
             user: user,
             partialsPath: '../pages/branches',
             branches: rows,

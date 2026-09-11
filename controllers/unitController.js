@@ -37,7 +37,7 @@ exports.listUnits = async (req, res) => {
         );
 
         res.render('layouts/main', {
-            title: 'Manajemen Unit - Ticketing System',
+            title: 'Manajemen Unit - MyTickSystem',
             user: user,
             partialsPath: '../pages/units',
             units: unitsRes.rows,

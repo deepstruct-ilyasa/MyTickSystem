@@ -45,7 +45,7 @@ exports.listUsers = async (req, res) => {
         const { rows: superiors } = await pool.query(`SELECT id, branch_id, unit_id, name, role FROM users WHERE role IN ('manager', 'supervisor')`);
 
         res.render('layouts/main', {
-            title: 'Manajemen User - Ticketing System',
+            title: 'Manajemen User - MyTickSystem',
             user: user,
             partialsPath: '../pages/users',
             usersList: usersList,

@@ -27,7 +27,7 @@ const TicketController = {
             `);
 
             res.render('layouts/main', {
-                title: 'Buat Tiket Baru - Ticketing System',
+                title: 'Buat Tiket Baru - MyTickSystem',
                 user: user,
                 partialsPath: '../pages/tickets/create',
                 ticketCategories: categoryQuery.rows,
@@ -104,7 +104,7 @@ const TicketController = {
             const outboxRes = await pool.query(outboxQuery, outboxParams);
 
             res.render('layouts/main', {
-                title: 'Manajemen Tiket - Ticketing System',
+                title: 'Manajemen Tiket - MyTickSystem',
                 user: user,
                 partialsPath: '../pages/tickets/index',
                 inboxTickets: inboxRes.rows,
@@ -299,7 +299,7 @@ const TicketController = {
             `);
 
             res.render('layouts/main', {
-                title: `Detail Tiket ${ticket.ticket_number} - Ticketing System`,
+                title: `Detail Tiket ${ticket.ticket_number} - MyTickSystem`,
                 user: user,
                 partialsPath: '../pages/tickets/detail',
                 ticket: ticket,
@@ -474,7 +474,7 @@ const TicketController = {
             const branchesRes = await pool.query('SELECT id, name FROM branches ORDER BY name ASC');
 
             res.render('layouts/main', {
-                title: 'Master Kategori - Ticketing System',
+                title: 'Master Kategori - MyTickSystem',
                 user: user,
                 partialsPath: '../pages/tickets/categories',
                 categories: categoriesRes.rows,

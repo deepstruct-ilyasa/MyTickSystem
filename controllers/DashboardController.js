@@ -164,7 +164,7 @@ const DashboardController = {
             const usersRes = await pool.query(usersQuery, usersParams);
 
             res.render('layouts/main', {
-                title: 'Dashboard - Ticketing System',
+                title: 'Dashboard - MyTickSystem',
                 user: user,
                 partialsPath: '../pages/dashboard',
                 stats: stats,
