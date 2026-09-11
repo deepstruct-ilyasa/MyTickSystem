@@ -117,7 +117,7 @@
                 
                 <!-- Pilih Cabang -->
                 <div>
-                    <label class="block text-xs font-semibold uppercase text-gray-600 mb-1">Penempatan Cabang</label>
+                    <label class="block text-xs font-semibold uppercase text-gray-600 mb-1">Cabang</label>
                     <select name="branch_id" x-model="selectedBranch" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white">
                         <option value="">-- Pilih Cabang --</option>
                         <% branches.forEach(b => { %>
@@ -128,7 +128,7 @@
 
                 <!-- Pilih Role -->
                 <div x-show="selectedBranch !== ''" style="display: none;">
-                    <label class="block text-xs font-semibold uppercase text-gray-600 mb-1">Role / Jabatan</label>
+                    <label class="block text-xs font-semibold uppercase text-gray-600 mb-1">Jabatan</label>
                     <select name="role" x-model="selectedRole" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white">
                         <option value="">-- Pilih Role --</option>
                         
@@ -150,7 +150,7 @@
 
                 <!-- Pilih Unit -->
                 <div x-show="selectedRole !== '' && selectedRole !== 'admin_cabang'" style="display: none;">
-                    <label class="block text-xs font-semibold uppercase text-gray-600 mb-1">Pilih Unit Kerja</label>
+                    <label class="block text-xs font-semibold uppercase text-gray-600 mb-1">Pilih Unit</label>
                     <select name="unit_id" x-model="selectedUnit" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white">
                         <option value="">-- Pilih Unit --</option>
                         <template x-for="unit in filteredUnits" :key="unit.id">
@@ -161,7 +161,7 @@
 
                 <!-- Pilih Atasan -->
                 <div x-show="['supervisor', 'staf'].includes(selectedRole)" style="display: none;">
-                    <label class="block text-xs font-semibold uppercase text-gray-600 mb-1">Lapor Ke (Atasan Langsung)</label>
+                    <label class="block text-xs font-semibold uppercase text-gray-600 mb-1">Atasan</label>
                     <select name="supervisor_id" x-model="selectedSuperior" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white">
                         <option value="">-- Pilih Atasan --</option>
                         <template x-for="sup in filteredSuperiors" :key="sup.id">

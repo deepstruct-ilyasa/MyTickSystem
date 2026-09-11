@@ -32,7 +32,8 @@ const initializeDatabase = async () => {
                 branch_id INTEGER REFERENCES branches(id) ON DELETE RESTRICT,
                 parent_unit_id INTEGER REFERENCES units(id) ON DELETE RESTRICT,
                 name VARCHAR(255) NOT NULL,
-                unit_code VARCHAR(50) NOT NULL
+                unit_code VARCHAR(50) NOT NULL,
+                branch_sequence INTEGER
             );
         `);
 
@@ -47,7 +48,8 @@ const initializeDatabase = async () => {
                 name VARCHAR(255) NOT NULL,
                 password VARCHAR(255) NOT NULL,
                 role VARCHAR(50) NOT NULL,
-                profile_picture VARCHAR(255)
+                profile_picture VARCHAR(255),
+                branch_sequence INTEGER
             );
         `);
 

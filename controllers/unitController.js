@@ -64,21 +64,27 @@ exports.createUnit = async (req, res) => {
 
         const parentId = parent_unit_id && parent_unit_id !== '' ? parent_unit_id : null;
 
-        // LOGIKA DINAMIS RINGKAS: 
-        // Jika parentId KOSONG (Unit Manajemen), buat kode MGR-[3-4 huruf unik] + [angka acak 2 digit biar singkat]
+        // 1. Hitung nomor urut terbesar KHUSUS untuk cabang ini agar mulai dari 1 lagi per cabang
+        const lastSeqRes = await pool.query(
+            'SELECT COALESCE(MAX(branch_sequence), 0) as max_seq FROM units WHERE branch_id = $1',
+            [branch_id]
+        );
+        const nextBranchSeq = lastSeqRes.rows[0].max_seq + 1;
+
+        // 2. Logika kode unit otomatis jika parentId kosong (Unit Manajemen)
         let finalCode = unit_code;
         if (!parentId) {
-            // Mengambil maksimal 4 huruf pertama dari nama unit (dibersihkan dari spasi, dijadikan huruf besar)
             const cleanName = name.replace(/[^a-zA-Z]/g, '').toUpperCase().substring(0, 4);
-            const randomSuffix = Math.floor(10 + Math.random() * 90); // Angka acak 2 digit (10-99)
-            
+            const randomSuffix = Math.floor(10 + Math.random() * 90);
             finalCode = `MGR-${cleanName}-${randomSuffix}`;
         }
 
+        // 3. Simpan ke database dengan menyertakan branch_sequence
         await pool.query(
-            'INSERT INTO units (branch_id, parent_unit_id, name, unit_code) VALUES ($1, $2, $3, $4)',
-            [branch_id, parentId, name, finalCode]
+            'INSERT INTO units (branch_id, parent_unit_id, name, unit_code, branch_sequence) VALUES ($1, $2, $3, $4, $5)',
+            [branch_id, parentId, name, finalCode, nextBranchSeq]
         );
+        
         res.redirect('/units?success=Unit berhasil ditambahkan!');
     } catch (err) {
         console.error('[UNIT ADD ERROR]', err);

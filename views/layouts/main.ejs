@@ -6,19 +6,9 @@
     <title><%= typeof title !== 'undefined' ? title : 'MyTickSystem' %></title>
 
     <link rel="icon" type="image/png" href="/logo.png">
-    
-    <!-- Tailwind CSS Lokal (Hasil Kompilasi CLI) -->
     <link href="/css/output.css" rel="stylesheet">
-    
-    <!-- Alpine.js Lokal -->
-    <script defer src="/vendor/alpine.min.js"></script>
-    
-    <!-- Tom Select CSS Lokal -->
     <link href="/vendor/tom-select/tom-select.bootstrap5.min.css" rel="stylesheet">
     <link href="/vendor/cropperjs/cropper.min.css" rel="stylesheet">
-        
-    <!-- SweetAlert2 Lokal -->
-    <script src="/vendor/sweetalert2.all.min.js"></script>
     
     <style>
         [x-cloak] { display: none !important; }
@@ -27,29 +17,21 @@
 <body class="bg-gray-50 font-sans antialiased">
 
     <div class="flex h-screen overflow-hidden" x-data="{ sidebarOpen: false }">
-        
-        <!-- Sidebar Component -->
         <%- include('../partials/sidebar') %>
-
-        <!-- Main Content Area -->
         <div class="flex flex-col flex-1 h-full overflow-hidden">
-            
-            <!-- Header Component -->
             <%- include('../partials/header') %>
-
-            <!-- Dynamic Content Page -->
             <main class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 p-6">
                 <%- include(partialsPath) %>
             </main>
         </div>
     </div>
 
-    <!-- Tom Select & Chart.js Lokal -->
     <script src="/vendor/tom-select/tom-select.complete.min.js"></script>
     <script src="/vendor/chart.umd.min.js"></script>
     <script src="/vendor/cropperjs/cropper.min.js"></script>
+    <script defer src="/vendor/alpine.min.js"></script>
+    <script src="/vendor/sweetalert2.all.min.js"></script>
 
-    <!-- Global SweetAlert2 Notification & URL Cleaner Handler -->
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const urlParams = new URLSearchParams(window.location.search);
@@ -82,15 +64,12 @@
             // ==========================================
             // ⭐ MASTER GLOBAL POLLING (SYNC SERENTAK) ⭐
             // ==========================================
-            const SYNC_INTERVAL = 5000; // 20 detik (ideal & aman untuk server)
+            const SYNC_INTERVAL = 5000;
 
             setInterval(() => {
-                // 1. Sinkronisasi Notifikasi (Loneng Navbar di Header)
                 if (typeof window.checkGlobalNotifications === 'function') {
                     window.checkGlobalNotifications();
                 }
-
-                // 2. Sinkronisasi Dashboard (Hanya berjalan jika fungsi dashboard tersedia di halaman aktif)
                 if (typeof window.fetchAndUpdateDashboard === 'function') {
                     window.fetchAndUpdateDashboard();
                 }

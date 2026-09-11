@@ -73,11 +73,23 @@ exports.createUser = async (req, res) => {
         const finalUnit = (unit_id && unit_id !== '') ? parseInt(unit_id, 10) : null;
         const finalSupervisor = (supervisor_id && supervisor_id !== '') ? parseInt(supervisor_id, 10) : null;
 
+        // ⭐ HITUNG NOMOR URUT MANDIRI KHUSUS UNTUK CABANG INI ⭐
+        let nextBranchSeq = 1;
+        if (finalBranch) {
+            const lastSeqRes = await pool.query(
+                'SELECT COALESCE(MAX(branch_sequence), 0) as max_seq FROM users WHERE branch_id = $1',
+                [finalBranch]
+            );
+            nextBranchSeq = lastSeqRes.rows[0].max_seq + 1;
+        }
+
+        // Simpan data user beserta branch_sequence-nya
         await pool.query(
-            `INSERT INTO users (branch_id, unit_id, supervisor_id, nip, name, password, role)
-             VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-            [finalBranch, finalUnit, finalSupervisor, nip, name, hashedPassword, role]
+            `INSERT INTO users (branch_id, unit_id, supervisor_id, nip, name, password, role, branch_sequence)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+            [finalBranch, finalUnit, finalSupervisor, nip, name, hashedPassword, role, nextBranchSeq]
         );
+        
         res.redirect('/users?success=User berhasil ditambah!');
     } catch (err) {
         console.error('[USER ADD ERROR]', err);
