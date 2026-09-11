@@ -7,7 +7,7 @@
         <div class="flex items-center space-x-4 my-4">
             
             <div class="relative group cursor-pointer flex-shrink-0 w-16 h-16 bg-blue-600 text-white rounded-full flex items-center justify-center text-xl font-bold overflow-hidden shadow-sm"
-                 @click="openCropModal()" title="Klik untuk atur / geser foto">
+                 @click="showProfileModal = true" title="Klik untuk memperbesar foto">
                 
                 <template x-if="finalCroppedUrl">
                     <img :src="finalCroppedUrl" alt="Avatar Preview" class="w-full h-full object-cover">
@@ -22,7 +22,8 @@
 
                 <div class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                     <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
                     </svg>
                 </div>
             </div>
@@ -33,7 +34,7 @@
                 <div class="flex flex-wrap items-center gap-2">
                     <input type="file" x-ref="fileInput" @change="fileChosen(event)" accept="image/jpeg, image/png, image/webp" class="text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer">
                 </div>
-                <p class="text-[11px] text-gray-400 mt-1">Klik foto profil untuk menggeser posisi. Format: JPG, PNG, WEBP (Maks. 2MB)</p>
+                <p class="text-[11px] text-gray-400 mt-1">Klik foto profil untuk memperbesar gambar. Format: JPG, PNG, WEBP (Maks. 2MB)</p>
             </div>
         </div>
 
@@ -108,6 +109,47 @@
             </div>
         </div>
     </div>
+
+
+    <div x-show="showProfileModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" @click.self="showProfileModal = false">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full overflow-hidden transform transition-all p-5 text-center">
+            
+            <div class="flex justify-between items-center mb-3">
+                <h3 class="font-bold text-gray-800 text-sm">Foto Profil</h3>
+                <button type="button" @click="showProfileModal = false" class="text-gray-400 hover:text-gray-600 text-xl font-bold">&times;</button>
+            </div>
+
+            <div class="w-64 h-64 mx-auto rounded-xl overflow-hidden shadow-inner bg-gray-100 flex items-center justify-center border border-gray-100">
+                <template x-if="finalCroppedUrl">
+                    <img :src="finalCroppedUrl" alt="Foto Profil Besar" class="w-full h-full object-cover">
+                </template>
+                <template x-if="!finalCroppedUrl">
+                    <% if (profileUser.profile_picture) { %>
+                        <img src="/uploads/profile/<%= profileUser.profile_picture %>?v=<%= Date.now() %>" alt="Foto Profil Besar" class="w-full h-full object-cover">
+                    <% } else { %>
+                        <div class="w-full h-full bg-blue-600 text-white flex items-center justify-center text-5xl font-bold">
+                            <%= user.name.charAt(0).toUpperCase() %>
+                        </div>
+                    <% } %>
+                </template>
+            </div>
+
+            <div class="mt-5 space-y-2">
+                <% if (profileUser.profile_picture || finalCroppedUrl) { %>
+                    <a :href="finalCroppedUrl ? finalCroppedUrl : '/uploads/profile/<%= profileUser.profile_picture %>'" 
+                       download="foto-profil-<%= profileUser.nip %>.jpg"
+                       class="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-xl transition flex items-center justify-center space-x-2 shadow-sm">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                        </svg>
+                        <span>Download Foto</span>
+                    </a>
+                <% } %>
+
+                <button type="button" @click="showProfileModal = false" class="w-full py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-xs rounded-xl transition">Tutup</button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <style>
@@ -132,6 +174,7 @@ function profileForm() {
         finalCroppedUrl: null,
         croppedBlob: null,
         showCropModal: false,
+        showProfileModal: false,
         cropper: null,
         loading: false,
 
@@ -149,9 +192,9 @@ function profileForm() {
         },
 
         openCropModal() {
+            // Jika belum memilih file baru via input, jangan buka modal crop
             if (!this.tempImageUrl) {
-                // Jika belum pilih file baru tapi klik foto, beri tahu atau abaikan
-                return;
+                return; 
             }
             this.showCropModal = true;
             this.$nextTick(() => {
@@ -232,10 +275,18 @@ function profileForm() {
                         }
                     }
 
+                    // ⭐ BERSIHKAN STATE CROP SETELAH BERHASIL DISIMPAN ⭐
+                    this.tempImageUrl = null; 
+                    if (this.cropper) {
+                        this.cropper.destroy();
+                        this.cropper = null;
+                    }
+                    this.croppedBlob = null;
+                    this.$refs.fileInput.value = ''; // Reset input file HTML
+
                     this.current_password = '';
                     this.new_password = '';
                     this.confirm_password = '';
-                    this.croppedBlob = null;
                 } else {
                     Swal.fire({
                         icon: 'error',
