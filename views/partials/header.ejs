@@ -102,7 +102,6 @@
                         }
                     });
             },
-            // Fungsi saat SATU notifikasi diklik
             markAsReadAndRedirect(notifId, ticketId) {
                 fetch(`/api/notifications/${notifId}/read`, { 
                     method: 'POST',
@@ -111,16 +110,13 @@
                 .then(res => res.json())
                 .then(data => {
                     if (data.success) {
-                        // Redirect langsung ke halaman detail tiket setelah database ter-update
                         window.location.href = `/tickets/${ticketId}`;
                     }
                 })
                 .catch(err => {
-                    // Fallback jika fetch error, tetap arahkan ke tiket
                     window.location.href = `/tickets/${ticketId}`;
                 });
             },
-            // Fungsi untuk tombol "Tandai semua dibaca"
             markAllAsRead() {
                 fetch('/api/notifications/read-all', { method: 'POST' })
                     .then(res => res.json())
@@ -133,9 +129,11 @@
             },
             init() {
                 this.fetchNotifications();
-                setInterval(() => {
+                
+                // ⭐ DAFTARKAN KE GLOBAL WINDOW AGAR BISA DIPANGGIL DARI LAYOUT UTAMA ⭐
+                window.checkGlobalNotifications = () => {
                     this.fetchNotifications();
-                }, 30000);
+                };
             }
         }
     }

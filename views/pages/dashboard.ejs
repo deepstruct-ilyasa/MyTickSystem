@@ -270,7 +270,7 @@
                         <th class="py-3.5 px-6 text-center">Aksi</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-gray-100 text-sm text-gray-700" id="ticketTableBody">
+                <tbody class="divide-y divide-gray-100 text-xs text-gray-700" id="ticketTableBody">
                     <% if (recentTickets.length > 0) { %>
                         <% recentTickets.forEach(ticket => { %>
                             <tr class="hover:bg-gray-50/50 transition">
@@ -335,7 +335,11 @@
     let myStatusChart = null;
     let myCategoryChart = null;
     let myAllCategoryChart = null;
-    let fetchAndUpdateDashboard = null; // Deklarasi global agar bisa dipanggil fungsi switchTab
+    let fetchAndUpdateDashboard = null; 
+
+    // Simpan cache data terakhir untuk perbandingan (mencegah kedip jika data sama)
+    let lastStatsCache = null;
+    let lastCategoryCache = null;
 
     function renderDashboardChart(statsData) {
         const ctx = document.getElementById('statusChart').getContext('2d');
@@ -346,8 +350,16 @@
             parseInt(statsData.total_closed) || 0
         ];
 
+        // Jika chart sudah ada, update datanya secara halus tanpa destroy jika strukturnya sama
         if (myStatusChart) {
-            myStatusChart.destroy();
+            const currentDataStr = JSON.stringify(myStatusChart.data.datasets[0].data);
+            const newDataStr = JSON.stringify(dataValues);
+            
+            if (currentDataStr === newDataStr) return; // Keluar jika data chart tidak berubah (STOP KEDIP!)
+
+            myStatusChart.data.datasets[0].data = dataValues;
+            myStatusChart.update('none'); // Update senyap tanpa animasi berkedip
+            return;
         }
 
         myStatusChart = new Chart(ctx, {
@@ -365,6 +377,7 @@
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                animation: false, // Matikan animasi awal agar tidak kedip saat pertama load
                 plugins: {
                     legend: {
                         position: 'bottom',
@@ -381,6 +394,10 @@
         
         const labels = categoryData.map(item => item.category || 'Lainnya');
         const dataValues = categoryData.map(item => parseInt(item.total) || 0);
+
+        const newCacheStr = JSON.stringify({ labels, dataValues });
+        if (window.lastCategoryBarCache === newCacheStr) return; // STOP KEDIP JIKA KATEGORI SAMA!
+        window.lastCategoryBarCache = newCacheStr;
 
         if (myCategoryChart) {
             myCategoryChart.destroy();
@@ -401,6 +418,7 @@
                 indexAxis: 'y',
                 responsive: true,
                 maintainAspectRatio: false,
+                animation: false,
                 plugins: {
                     legend: { display: false }
                 },
@@ -420,6 +438,10 @@
         const labels = categoryData.map(item => item.category || 'Lainnya');
         const dataValues = categoryData.map(item => parseInt(item.total) || 0);
 
+        const newCacheStr = JSON.stringify({ labels, dataValues });
+        if (window.lastAllCategoryCache === newCacheStr) return;
+        window.lastAllCategoryCache = newCacheStr;
+
         if (myAllCategoryChart) myAllCategoryChart.destroy();
 
         myAllCategoryChart = new Chart(ctx, {
@@ -429,7 +451,7 @@
                 datasets: [{
                     label: 'Jumlah Tiket',
                     data: dataValues,
-                    backgroundColor: '#10B981', // Warna hijau emerald agar beda elegan
+                    backgroundColor: '#10B981',
                     borderRadius: 8,
                 }]
             },
@@ -437,6 +459,7 @@
                 indexAxis: 'y',
                 responsive: true,
                 maintainAspectRatio: false,
+                animation: false,
                 plugins: { legend: { display: false } },
                 scales: { x: { beginAtZero: true, ticks: { precision: 0 } } }
             }
@@ -449,12 +472,14 @@
         const rate = total > 0 ? Math.round((finished / total) * 100) : 0;
 
         const ratePercent = document.getElementById('ratePercent');
-        const rateDetail = document.getElementById('rateDetail');
         const rateBar = document.getElementById('rateBar');
 
-        if (ratePercent) ratePercent.textContent = rate + '%';
-        if (rateDetail) rateDetail.textContent = finished + ' dari ' + total + ' Selesai';
-        if (rateBar) rateBar.style.width = rate + '%';
+        if (ratePercent && ratePercent.textContent !== rate + '%') {
+            ratePercent.textContent = rate + '%';
+        }
+        if (rateBar && rateBar.style.width !== rate + '%') {
+            rateBar.style.width = rate + '%';
+        }
     }
 
     function updateFilterBadge() {
@@ -521,7 +546,6 @@
 
         updateFilterBadge();
 
-        // Inisialisasi Chart Status pertama kali
         const initialStats = {
             total_inbox: '<%= stats.total_inbox %>',
             total_open: '<%= stats.total_open %>',
@@ -531,7 +555,6 @@
         };
         renderDashboardChart(initialStats);
 
-        // Inisialisasi Chart Kategori pertama kali dari data server
         const initialCategories = <%- JSON.stringify(topCategories || []) %>;
         renderCategoryChart(initialCategories);
         renderAllCategoryChart(initialCategories);
@@ -560,13 +583,14 @@
                 .then(res => res.json())
                 .then(data => {
                     if (data.success) {
-                        if (statTotal) statTotal.textContent = data.stats.total_inbox;
-                        if (statOpen) statOpen.textContent = data.stats.total_open;
-                        if (statProcess) statProcess.textContent = data.stats.total_process;
-                        if (statResolved) statResolved.textContent = data.stats.total_resolved;
-                        if (statClosed) statClosed.textContent = data.stats.total_closed;
+                        // Update angka statistik hanya jika berubah
+                        if (statTotal && statTotal.textContent != data.stats.total_inbox) statTotal.textContent = data.stats.total_inbox;
+                        if (statOpen && statOpen.textContent != data.stats.total_open) statOpen.textContent = data.stats.total_open;
+                        if (statProcess && statProcess.textContent != data.stats.total_process) statProcess.textContent = data.stats.total_process;
+                        if (statResolved && statResolved.textContent != data.stats.total_resolved) statResolved.textContent = data.stats.total_resolved;
+                        if (statClosed && statClosed.textContent != data.stats.total_closed) statClosed.textContent = data.stats.total_closed;
 
-                        // Perbarui Grafik Status, Persentase, & Kategori secara Live AJAX
+                        // Render grafik & persentase dengan pengaman anti-kedip
                         renderDashboardChart(data.stats);
                         updateResolutionRate(data.stats);
                         renderCategoryChart(data.topCategories);
@@ -623,41 +647,21 @@
                                         </tr>
                                     `;
                                 });
-                                ticketTableBody.innerHTML = rowsHtml;
+
+                                if (ticketTableBody.innerHTML.trim() !== rowsHtml.trim()) {
+                                    ticketTableBody.innerHTML = rowsHtml;
+                                }
+
                             } else {
-                                ticketTableBody.innerHTML = `
+                                const emptyHtml = `
                                     <tr>
                                         <td colspan="8" class="py-12 text-center text-gray-400 text-sm">Belum ada tiket yang sesuai dengan filter saat ini.</td>
                                     </tr>
                                 `;
+                                if (ticketTableBody.innerHTML.trim() !== emptyHtml.trim()) {
+                                    ticketTableBody.innerHTML = emptyHtml;
+                                }
                             }
-                        }
-
-                        if (managerSelect) {
-                            const curManager = managerSelect.value;
-                            managerSelect.innerHTML = '<option value="all">-- Semua Management (All) --</option>';
-                            data.managers.forEach(m => {
-                                const sel = m.id == curManager ? 'selected' : '';
-                                managerSelect.innerHTML += `<option value="${m.id}" ${sel}>${m.name}</option>`;
-                            });
-                        }
-
-                        if (unitSelect) {
-                            const curUnit = unitSelect.value;
-                            unitSelect.innerHTML = '<option value="all">-- Semua Unit (All) --</option>';
-                            data.units.forEach(u => {
-                                const sel = u.id == curUnit ? 'selected' : '';
-                                unitSelect.innerHTML += `<option value="${u.id}" ${sel}>${u.name}</option>`;
-                            });
-                        }
-
-                        if (userSelect) {
-                            const curUser = userSelect.value;
-                            userSelect.innerHTML = '<option value="all">-- Semua Staf (All) --</option>';
-                            data.users.forEach(usr => {
-                                const sel = usr.id == curUser ? 'selected' : '';
-                                userSelect.innerHTML += `<option value="${usr.id}" ${sel}>${usr.name}</option>`;
-                            });
                         }
                     }
                 })

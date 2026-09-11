@@ -1997,6 +1997,9 @@
     .md\:p-8 {
       padding: calc(var(--spacing) * 8);
     }
+    .md\:px-1 {
+      padding-inline: var(--spacing);
+    }
     .md\:text-8xl {
       font-size: var(--text-8xl);
       line-height: var(--tw-leading, var(--text-8xl--line-height));

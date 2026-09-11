@@ -49,34 +49,54 @@
 
     <!-- Global SweetAlert2 Notification & URL Cleaner Handler -->
     <script>
-    document.addEventListener('DOMContentLoaded', () => {
-        const urlParams = new URLSearchParams(window.location.search);
-        const successMsg = urlParams.get('success');
-        const errorMsg = urlParams.get('error');
+        document.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const successMsg = urlParams.get('success');
+            const errorMsg = urlParams.get('error');
 
-        if (successMsg) {
-            Swal.fire({
-                icon: 'success',
-                title: 'Berhasil!',
-                text: successMsg,
-                confirmButtonColor: '#2563eb'
-            }).then(() => {
+            if (successMsg) {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Berhasil!',
+                    text: successMsg,
+                    confirmButtonColor: '#2563eb'
+                }).then(() => {
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                });
                 window.history.replaceState({}, document.title, window.location.pathname);
-            });
-            window.history.replaceState({}, document.title, window.location.pathname);
 
-        } else if (errorMsg) {
-            Swal.fire({
-                icon: 'error',
-                title: 'Oops...',
-                text: errorMsg,
-                confirmButtonColor: '#dc2626'
-            }).then(() => {
+            } else if (errorMsg) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Oops...',
+                    text: errorMsg,
+                    confirmButtonColor: '#dc2626'
+                }).then(() => {
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                });
                 window.history.replaceState({}, document.title, window.location.pathname);
-            });
-            window.history.replaceState({}, document.title, window.location.pathname);
-        }
-    });
+            }
+
+            // ==========================================
+            // ⭐ MASTER GLOBAL POLLING (SYNC SERENTAK) ⭐
+            // ==========================================
+            const SYNC_INTERVAL = 20000; // 20 detik (ideal & aman untuk server)
+
+            setInterval(() => {
+                // 1. Sinkronisasi Notifikasi (Loneng Navbar di Header)
+                if (typeof window.checkGlobalNotifications === 'function') {
+                    window.checkGlobalNotifications();
+                }
+
+                // 2. Sinkronisasi Dashboard (Hanya berjalan jika fungsi dashboard tersedia di halaman aktif)
+                if (typeof window.fetchAndUpdateDashboard === 'function') {
+                    window.fetchAndUpdateDashboard();
+                }
+                if (typeof window.fetchAndUpdateTickets === 'function') {
+                    window.fetchAndUpdateTickets();
+                }
+            }, SYNC_INTERVAL);
+        });
     </script>
 </body>
 </html>

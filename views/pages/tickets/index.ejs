@@ -51,7 +51,7 @@
                         <th class="py-3.5 px-6 text-center">Aksi</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-gray-100 text-sm text-gray-700">
+                <tbody class="divide-y divide-gray-100 text-sm text-gray-700" id="inboxTableBody">
                     <% if (inboxTickets.length === 0) { %>
                         <tr>
                             <td colspan="8" class="py-12 text-center text-gray-400">Tidak ada tiket masuk saat ini.</td>
@@ -122,7 +122,7 @@
                         <th class="py-3.5 px-6 text-center">Aksi</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-gray-100 text-sm text-gray-700">
+                <tbody class="divide-y divide-gray-100 text-sm text-gray-700" id="outboxTableBody">
                     <% if (outboxTickets.length === 0) { %>
                         <tr>
                             <td colspan="8" class="py-12 text-center text-gray-400">Anda belum pernah membuat tiket.</td>
@@ -180,3 +180,38 @@
 
     </div>
 </div>
+
+<script>
+    const currentUserRole = '<%= user.role %>';
+    let fetchAndUpdateTickets = null;
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const inboxTableBody = document.getElementById('inboxTableBody');
+        const outboxTableBody = document.getElementById('outboxTableBody');
+
+        fetchAndUpdateTickets = function() {
+            // Mengambil data dari rute utama tiket dengan format JSON (atau kita sesuaikan endpoint-nya)
+            fetch('/tickets') // Atau buat endpoint ringan khusus json jika diperlukan
+                .then(res => res.text()) // Kalau rutenya merender HTML, kita bisa sesuaikan, tapi idealnya pakai endpoint JSON
+                .then(html => {
+                    // Parser HTML sederhana untuk mengambil bagian tabel yang baru
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(html, 'text/html');
+                    
+                    const newInbox = doc.getElementById('inboxTableBody');
+                    const newOutbox = doc.getElementById('outboxTableBody');
+
+                    if (newInbox && inboxTableBody && inboxTableBody.innerHTML.trim() !== newInbox.innerHTML.trim()) {
+                        inboxTableBody.innerHTML = newInbox.innerHTML;
+                    }
+                    if (newOutbox && outboxTableBody && outboxTableBody.innerHTML.trim() !== newOutbox.innerHTML.trim()) {
+                        outboxTableBody.innerHTML = newOutbox.innerHTML;
+                    }
+                })
+                .catch(err => console.error('Gagal sync tiket:', err));
+        };
+
+        // Daftarkan ke global window agar terbaca oleh main.ejs
+        window.fetchAndUpdateTickets = fetchAndUpdateTickets;
+    });
+</script>
