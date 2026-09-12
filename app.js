@@ -9,6 +9,7 @@ const pool = require('./config/db');
 const initializeDatabase = require('./utils/initDb');
 const checkSetup = require('./middlewares/checkSetup');
 const { isAuthenticated } = require('./middlewares/authMiddleware');
+const loadSettings = require('./middlewares/settingsMiddleware');
 
 // Import Routes
 const setupRoutes = require('./routes/setupRoutes');
@@ -19,6 +20,8 @@ const branchRoutes = require('./routes/branchRoutes');
 const unitRoutes = require('./routes/unitRoutes');
 const userRoutes = require('./routes/userRoutes');
 const profileRoutes = require('./routes/profileRoutes');
+const settingsRoutes = require('./routes/settingsRoutes');
+
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -57,6 +60,7 @@ app.use(checkSetup);
 // ==========================================
 // 5. ROUTING APLIKASI
 // ==========================================
+app.use(loadSettings);
 app.use('/setup', setupRoutes);
 app.use('/', authRoutes);
 app.use('/', dashboardRoutes);           // <-- Menangani rute '/' dan '/dashboard' via DashboardController
@@ -65,6 +69,7 @@ app.use('/branches', branchRoutes);
 app.use('/units', unitRoutes);
 app.use('/users', userRoutes);
 app.use('/profile', profileRoutes);
+app.use('/settings', settingsRoutes);
 
 // ==========================================
 // 5.1 TAMBAHAN ENDPOINT API NOTIFIKASI
@@ -134,6 +139,17 @@ app.post('/api/notifications/:id/read', async (req, res) => {
         console.error('[API Error] Gagal update single notification:', err);
         res.status(500).json({ success: false, error: err.message });
     }
+});
+
+
+app.get('/offline', (req, res) => {
+    res.render('layouts/main', {
+        title: 'Offline - MyTickSystem',
+        user: req.session.user || { role: 'guest' }, // Berikan fallback role guest
+        partialsPath: '../pages/offline',
+        error: null,
+        success: null
+    });
 });
 
 // ==========================================

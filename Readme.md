@@ -47,6 +47,27 @@ Sistem Informasi Manajemen Tiket berbasis web yang dirancang untuk mengelola alu
     └── .env                # Konfigurasi Environment
 ```
 
+# 📱 Progressive Web App (PWA) & Offline Capabilities
+
+*MyTickSystem* dilengkapi dengan dukungan Progressive Web App (PWA) tingkat lanjut untuk memastikan aplikasi tetap andal, responsif, dan memberikan pengalaman pengguna (*UX*) yang mulus meskipun dalam kondisi jaringan yang tidak stabil atau offline total.
+
+### 🚀 Fitur Utama PWA
+* **Custom Offline Fallback (`offline.html`):** Ketika koneksi internet terputus atau server tidak merespons, Service Worker secara otomatis mencegat permintaan navigasi dan menampilkan halaman peringatan *offline* kustom berdesain modern menggunakan Tailwind CSS.
+* **Smart Asset Caching:** Aset inti aplikasi (seperti file CSS, skrip JavaScript vendor, Alpine.js, dan pustaka pendukung lainnya) di-cache secara aman saat instalasi pertama untuk mempercepat waktu muat halaman (*load time*).
+* **Real-time Connection Detector:** Dilengkapi dengan pemantau status koneksi otomatis di sisi klien (`online`/`offline event listeners`) yang terintegrasi dengan SweetAlert2 untuk memberikan notifikasi interaktif kepada pengguna secara *instant*.
+* **Quick-Reload & Sync Support:** Menyediakan tombol muat ulang cepat yang ramah bagi pengguna perangkat *mobile* maupun mode *PWA Standalone*, serta mekanisme sinkronisasi data latar belakang yang cerdas.
+* **Hybrid Fallback Integration:** Mendukung konfigurasi mode *standard* maupun *hybrid* melalui environment server untuk penanganan multi-jalur server cadangan.
+
+### ⚙️ Konfigurasi PWA (.env)
+Pastikan variabel berikut diatur di dalam file `.env` server Anda untuk mengaktifkan fitur PWA:
+
+```env
+PWA_ENABLED=true
+PWA_MODE=standard
+MAIN_URL= https://mytick.deepstruct.my.id
+SECONDARY_URL=
+```
+
 # ⚙️ Cara Menjalankan Aplikasi
 1. Pastikan Node.js dan PostgreSQL sudah terinstal di server atau komputer lokal Anda.
 

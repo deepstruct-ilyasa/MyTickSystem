@@ -1,24 +1,35 @@
 const pool = require('../config/db');
 
 const checkSetup = async (req, res, next) => {
-    // Abaikan pengecekan jika user sedang mengakses URL setup atau file statis (CSS/JS)
-    if (req.path === '/setup' || req.path.startsWith('/css') || req.path.startsWith('/js')) {
+    // Izinkan akses ke rute /setup, aset statis (CSS/JS), dan halaman login/auth
+    if (req.path.startsWith('/setup') || req.path.startsWith('/css') || req.path.startsWith('/js') || req.path === '/login') {
         return next();
     }
 
     try {
+        // Cek apakah tabel company_profile sudah ada
+        const tableCheck = await pool.query(`
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables 
+                WHERE table_name = 'company_profile'
+            );
+        `);
+
+        if (!tableCheck.rows[0].exists) {
+            return res.redirect('/setup');
+        }
+
         const { rows } = await pool.query('SELECT setup_completed FROM company_profile LIMIT 1');
         
-        // Jika data perusahaan belum ada, atau setup belum selesai, redirect!
+        // Jika setup belum selesai, arahkan ke wizard instalasi
         if (rows.length === 0 || rows[0].setup_completed === false) {
             return res.redirect('/setup');
         }
         
-        // Jika sudah setup, silakan lanjut
         next();
     } catch (err) {
-        console.error('[MIDDLEWARE ERROR] Gagal mengecek status setup:', err);
-        res.status(500).send('Internal Server Error saat mengecek Database');
+        // Jika database belum terhubung sama sekali, arahkan ke /setup
+        return res.redirect('/setup');
     }
 };
 

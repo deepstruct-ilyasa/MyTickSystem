@@ -1,22 +1,37 @@
 const { Pool } = require('pg');
 require('dotenv').config();
 
-// Menggunakan Pool agar koneksi ke database lebih efisien (bisa dipakai berulang kali)
-const pool = new Pool({
-    user: process.env.DB_USER,
-    host: process.env.DB_HOST,
-    database: process.env.DB_NAME,
-    password: process.env.DB_PASSWORD,
-    port: process.env.DB_PORT,
-});
+const getDbConfig = () => {
+    return {
+        user: process.env.DB_USER || '',
+        host: process.env.DB_HOST || 'localhost',
+        database: process.env.DB_NAME || '',
+        password: process.env.DB_PASSWORD || '',
+        port: process.env.DB_PORT ? parseInt(process.env.DB_PORT) : 5432,
+    };
+};
 
-// Test Koneksi
-pool.connect((err, client, release) => {
+let pool = new Pool(getDbConfig());
+
+const refreshPool = () => {
+    try {
+        pool.end();
+    } catch (e) {}
+    pool = new Pool(getDbConfig());
+};
+
+// Test Koneksi awal
+pool.query('SELECT NOW()', (err) => {
     if (err) {
-        return console.error('[DB ERROR] Gagal terkoneksi ke PostgreSQL:', err.stack);
+        console.warn('[DB WARNING] Database belum terhubung saat start awal. Akan diinisialisasi ulang setelah Setup Wizard selesai.');
+    } else {
+        console.log(`[DB SUCCESS] Berhasil terkoneksi ke database: ${process.env.DB_NAME || 'Unknown'}`);
     }
-    console.log(`[DB SUCCESS] Berhasil terkoneksi ke database: ${process.env.DB_NAME}`);
-    release(); // Lepaskan kembali client ke pool
 });
 
-module.exports = pool;
+// Pastikan module.exports mengekspor fungsi-fungsi ini dengan benar
+module.exports = {
+    query: (text, params) => pool.query(text, params),
+    getClient: () => pool.connect(),
+    refreshPool
+};

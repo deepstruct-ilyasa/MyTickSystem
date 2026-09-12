@@ -3,12 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#2563eb">
     <title><%= typeof title !== 'undefined' ? title : 'MyTickSystem' %></title>
 
     <link rel="icon" type="image/png" href="/logo.png">
     <link href="/css/output.css" rel="stylesheet">
     <link href="/vendor/tom-select/tom-select.bootstrap5.min.css" rel="stylesheet">
     <link href="/vendor/cropperjs/cropper.min.css" rel="stylesheet">
+    
+    <!-- ⭐ MANIFEST HANYA DIRENDER JIKA PWA AKTIF DARI DATABASE ⭐ -->
+    <% if (typeof pwaEnabled !== 'undefined' && pwaEnabled) { %>
+        <link rel="manifest" href="/manifest.json">
+    <% } %>
     
     <style>
         [x-cloak] { display: none !important; }
@@ -32,8 +38,111 @@
     <script defer src="/vendor/alpine.min.js"></script>
     <script src="/vendor/sweetalert2.all.min.js"></script>
 
+    <!-- ========================================== -->
+    <!-- ⭐ PWA & HYBRID FALLBACK CONFIGURATION ⭐ -->
+    <!-- ========================================== -->
+    <% if (typeof pwaEnabled !== 'undefined' && pwaEnabled) { %>
+        <script>
+            // 1. Registrasi Service Worker
+            if ('serviceWorker' in navigator) {
+                window.addEventListener('load', () => {
+                    navigator.serviceWorker.register('/sw.js')
+                        .then(reg => console.log('[PWA] Service Worker terdaftar:', reg.scope))
+                        .catch(err => console.log('[PWA] Gagal daftar Service Worker:', err));
+                });
+            }
+
+            // 2. Konfigurasi Global URL dari Database Settings (res.locals)
+            window.APP_CONFIG = {
+                pwaMode: "<%= typeof pwaMode !== 'undefined' ? pwaMode : 'main' %>",
+                mainUrl: "<%= typeof mainUrl !== 'undefined' ? mainUrl : '' %>",
+                secondaryUrl: "<%= typeof secondaryUrl !== 'undefined' ? secondaryUrl : '' %>"
+            };
+
+            // 3. Fungsi Smart Fetch (Fallback Berjenjang: Main -> Secondary -> Offline)
+            window.smartFetch = async function(endpoint, options = {}) {
+                const mode = window.APP_CONFIG.pwaMode; // 'main' atau 'redundant'
+                const main = window.APP_CONFIG.mainUrl;
+                const secondary = window.APP_CONFIG.secondaryUrl;
+
+                try {
+                    const response = await fetch(`${main}${endpoint}`, options);
+                    if (response.ok) return response;
+                    throw new Error('Main URL tidak merespons dengan baik.');
+                } catch (err) {
+                    console.warn('[NETWORK] Gagal mengakses Main URL:', err);
+
+                    // Jika mode redundant aktif dan secondary URL terisi
+                    if (mode === 'redundant' && secondary) {
+                        try {
+                            console.log('[NETWORK] Mencoba beralih ke Secondary URL (Redundant):', secondary);
+                            const secondaryResponse = await fetch(`${secondary}${endpoint}`, options);
+                            if (secondaryResponse.ok) return secondaryResponse;
+                            throw new Error('Secondary URL juga gagal.');
+                        } catch (secErr) {
+                            console.error('[OFFLINE] Jalur Utama dan Redundant gagal total.');
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Koneksi Terputus!',
+                                text: 'Server utama maupun jalur redundant ber-HTTPS tidak dapat diakses. Anda sedang offline.',
+                                confirmButtonColor: '#dc2626'
+                            });
+                            throw secErr;
+                        }
+                    } else {
+                        Swal.fire({
+                            icon: 'warning',
+                            title: 'Koneksi Terputus',
+                            text: 'Tidak dapat terhubung ke server utama.',
+                            confirmButtonColor: '#f59e0b'
+                        });
+                        throw err;
+                    }
+                }
+            };
+        </script>
+    <% } %>
+
     <script>
         document.addEventListener('DOMContentLoaded', () => {
+            let offlineSwal = null;
+
+            // ==========================================
+            // ⭐ POPUP OTOMATIS KONEKSI OFFLINE/ONLINE ⭐
+            // ==========================================
+            window.addEventListener('offline', () => {
+                offlineSwal = Swal.fire({
+                    icon: 'warning',
+                    title: 'Koneksi Terputus!',
+                    text: 'Aplikasi tidak terhubung. Anda sedang berada dalam mode offline.',
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                    showConfirmButton: true,
+                    confirmButtonText: 'Muat Ulang',
+                    confirmButtonColor: '#d97706',
+                    background: '#ffffff',
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        window.location.reload();
+                    }
+                });
+            });
+
+            window.addEventListener('online', () => {
+                if (offlineSwal) {
+                    Swal.close();
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Koneksi Pulih!',
+                        text: 'Sambungan internet kembali terhubung. Memuat ulang halaman...',
+                        timer: 2000,
+                        showConfirmButton: false
+                    }).then(() => {
+                        window.location.reload();
+                    });
+                }
+            });
+
             const urlParams = new URLSearchParams(window.location.search);
             const successMsg = urlParams.get('success');
             const errorMsg = urlParams.get('error');
