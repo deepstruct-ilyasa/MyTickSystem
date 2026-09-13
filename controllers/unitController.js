@@ -1,4 +1,5 @@
 const pool = require('../config/db');
+const xlsx = require('xlsx');
 
 // Menampilkan daftar unit
 exports.listUnits = async (req, res) => {
@@ -143,4 +144,109 @@ exports.deleteUnit = async (req, res) => {
         console.error('[UNIT DELETE ERROR]', err);
         res.redirect('/units?error=Gagal hapus! Pastikan tidak ada User atau Unit Biasa yang masih terikat pada unit ini.');
     }
+};
+
+
+exports.bulkImportUnits = async (req, res) => {
+    if (!req.file) {
+        return res.status(400).json({ success: false, message: 'File Excel belum diunggah!' });
+    }
+
+    const branch_id = req.session.user.branch_id; 
+
+    try {
+        // Gunakan pool langsung untuk transaksi
+        await pool.query('BEGIN');
+
+        const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
+        const sheetName = workbook.SheetNames[0];
+        const rows = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
+
+        if (rows.length === 0) {
+            await pool.query('ROLLBACK');
+            return res.status(400).json({ success: false, message: 'File Excel kosong.' });
+        }
+
+        let importedCount = 0;
+        let errors = [];
+
+        // Tahap 1: Masukkan unit utama (tanpa parent)
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            const { unit_code, name, parent_unit_code } = row;
+
+            if (!unit_code || !name) {
+                errors.push(`Baris ${i + 2}: Kode Unit dan Nama Unit wajib diisi.`);
+                continue;
+            }
+
+            if (!parent_unit_code) {
+                await pool.query(`
+                    INSERT INTO units (branch_id, unit_code, name, parent_unit_id)
+                    VALUES ($1, $2, $3, NULL)
+                    ON CONFLICT (branch_id, unit_code) 
+                    DO UPDATE SET name = EXCLUDED.name
+                `, [branch_id, unit_code.toString(), name]);
+                importedCount++;
+            }
+        }
+
+        // Tahap 2: Masukkan sub-unit (memiliki parent)
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            const { unit_code, name, parent_unit_code } = row;
+
+            if (unit_code && name && parent_unit_code) {
+                const parentRes = await pool.query(
+                    'SELECT id FROM units WHERE unit_code = $1 AND branch_id = $2', 
+                    [parent_unit_code.toString(), branch_id]
+                );
+
+                if (parentRes.rows.length > 0) {
+                    const parent_unit_id = parentRes.rows[0].id;
+                    await pool.query(`
+                        INSERT INTO units (branch_id, unit_code, name, parent_unit_id)
+                        VALUES ($1, $2, $3, $4)
+                        ON CONFLICT (branch_id, unit_code) 
+                        DO UPDATE SET name = EXCLUDED.name, parent_unit_id = EXCLUDED.parent_unit_id
+                    `, [branch_id, unit_code.toString(), name, parent_unit_id]);
+                    importedCount++;
+                } else {
+                    errors.push(`Baris ${i + 2}: Parent Unit "${parent_unit_code}" tidak ditemukan.`);
+                }
+            }
+        }
+
+        await pool.query('COMMIT');
+        return res.json({
+            success: true,
+            message: `Berhasil mengimpor ${importedCount} unit kerja!`,
+            errors: errors.length > 0 ? errors : null
+        });
+
+    } catch (err) {
+        await pool.query('ROLLBACK');
+        console.error('[IMPORT UNIT ERROR]', err);
+        return res.status(500).json({ success: false, message: 'Gagal memproses file unit.' });
+    }
+};
+
+exports.downloadUnitTemplate = (req, res) => {
+    const wb = xlsx.utils.book_new();
+    
+    // Data contoh baris pertama template
+    const templateData = [
+        { unit_code: "IT-HO", name: "Divisi Teknologi Informasi", parent_unit_code: "" },
+        { unit_code: "NOC", name: "Network Operations Center", parent_unit_code: "IT-HO" }
+    ];
+    
+    const ws = xlsx.utils.json_to_sheet(templateData);
+    xlsx.utils.book_append_sheet(wb, ws, "Template Unit");
+    
+    // Tulis ke buffer dan kirim sebagai download file
+    const buffer = xlsx.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    
+    res.setHeader('Content-Disposition', 'attachment; filename="Template_Import_Unit.xlsx"');
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.send(buffer);
 };

@@ -34,7 +34,8 @@ const initializeDatabase = async () => {
                     parent_unit_id INTEGER REFERENCES units(id) ON DELETE RESTRICT,
                     name VARCHAR(255) NOT NULL,
                     unit_code VARCHAR(50) NOT NULL,
-                    branch_sequence INTEGER
+                    branch_sequence INTEGER,
+                    CONSTRAINT unique_branch_unit_code UNIQUE (branch_id, unit_code)
                 );
             `);
 
