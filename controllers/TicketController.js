@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const { createNotification, notifyHierarchical } = require('../utils/notificationHelper');
 const sharp = require('sharp');
+const xlsx = require('xlsx');
 
 const TicketController = {
     async renderCreateForm(req, res) {
@@ -488,10 +489,17 @@ const TicketController = {
                 return res.redirect('/tickets/categories?error=Cabang tidak valid.');
             }
 
+            // Hitung branch_sequence otomatis khusus cabang ini
+            const seqRes = await pool.query(
+                'SELECT COALESCE(MAX(branch_sequence), 0) + 1 AS next_seq FROM ticket_categories WHERE branch_id = $1',
+                [targetBranchId]
+            );
+            const branch_sequence = seqRes.rows[0].next_seq;
+
             await pool.query(`
-                INSERT INTO ticket_categories (branch_id, category, issue_description, created_by, created_at)
-                VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
-            `, [targetBranchId, category, issue_description, userId]);
+                INSERT INTO ticket_categories (branch_id, category, issue_description, branch_sequence, created_by, created_at)
+                VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
+            `, [targetBranchId, category, issue_description, branch_sequence, userId]);
 
             res.redirect('/tickets/categories?success=Kategori berhasil ditambahkan.');
         } catch (error) {
@@ -542,6 +550,111 @@ const TicketController = {
         } catch (error) {
             console.error('[TicketController] Gagal menghapus kategori:', error);
             res.redirect('/tickets/categories?error=Gagal menghapus kategori.');
+        }
+    },
+
+    async downloadCategoryTemplate(req, res) {
+        const user = req.session.user;
+        const branch_id = user.role === 'superadmin' ? req.query.branch_id : user.branch_id;
+
+        if (!branch_id) {
+            return res.status(400).send('Harap pilih cabang terlebih dahulu sebelum mengunduh template!');
+        }
+
+        const wb = xlsx.utils.book_new();
+        
+        // Contoh data baris template kategori
+        const templateData = [
+            { category: "Hardware", issue_description: "Kerusakan Komputer / Laptop" },
+            { category: "Network", issue_description: "Koneksi Internet Putus" },
+            { category: "Software", issue_description: "Aplikasi Error / Crash" }
+        ];
+        
+        const ws = xlsx.utils.json_to_sheet(templateData);
+        xlsx.utils.book_append_sheet(wb, ws, "Template Kategori");
+        
+        const buffer = xlsx.write(wb, { type: 'buffer', bookType: 'xlsx' });
+        
+        res.setHeader('Content-Disposition', 'attachment; filename="Template_Import_Kategori.xlsx"');
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.send(buffer);
+    },
+
+    async bulkImportCategories(req, res) {
+        if (!req.file) {
+            return res.status(400).json({ success: false, message: 'File Excel belum diunggah!' });
+        }
+
+        const user = req.session.user;
+        const branch_id = user.role === 'superadmin' ? req.body.branch_id : user.branch_id; 
+
+        if (!branch_id) {
+            return res.status(400).json({ success: false, message: 'Cabang belum dipilih!' });
+        }
+
+        const userId = user.id || user.user_id;
+
+        try {
+            await pool.query('BEGIN');
+
+            const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
+            const sheetName = workbook.SheetNames[0];
+            const rows = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
+
+            if (rows.length === 0) {
+                await pool.query('ROLLBACK');
+                return res.status(400).json({ success: false, message: 'File Excel kosong.' });
+            }
+
+            let importedCount = 0;
+            let errors = [];
+
+            for (let i = 0; i < rows.length; i++) {
+                const row = rows[i];
+                const { category, issue_description } = row;
+
+                if (!category || !issue_description) {
+                    errors.push(`Baris ${i + 2}: Kolom category dan issue_description wajib diisi.`);
+                    continue;
+                }
+
+                // Cek apakah kombinasi kategori & kendala sudah ada di cabang tersebut
+                const existing = await pool.query(
+                    'SELECT id, branch_sequence FROM ticket_categories WHERE branch_id = $1 AND category = $2 AND issue_description = $3',
+                    [branch_id, category.toString().trim(), issue_description.toString().trim()]
+                );
+
+                let branch_sequence;
+                if (existing.rows.length > 0) {
+                    branch_sequence = existing.rows[0].branch_sequence;
+                } else {
+                    const seqRes = await pool.query(
+                        'SELECT COALESCE(MAX(branch_sequence), 0) + 1 AS next_seq FROM ticket_categories WHERE branch_id = $1',
+                        [branch_id]
+                    );
+                    branch_sequence = seqRes.rows[0].next_seq;
+                }
+
+                await pool.query(`
+                    INSERT INTO ticket_categories (branch_id, category, issue_description, branch_sequence, created_by, created_at)
+                    VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
+                    ON CONFLICT DO NOTHING
+                `, [branch_id, category.toString().trim(), issue_description.toString().trim(), branch_sequence, userId]);
+
+                importedCount++;
+            }
+
+            await pool.query('COMMIT');
+            return res.json({
+                success: true,
+                message: `Berhasil mengimpor ${importedCount} data kategori!`,
+                errors: errors.length > 0 ? errors : null
+            });
+
+        } catch (err) {
+            await pool.query('ROLLBACK');
+            console.error('[IMPORT CATEGORY ERROR]', err);
+            return res.status(500).json({ success: false, message: 'Gagal memproses file kategori.' });
         }
     }
 };
