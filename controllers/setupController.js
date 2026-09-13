@@ -122,7 +122,10 @@ SECONDARY_URL=
             ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
         `);
 
-        res.redirect('/login?success=Instalasi sistem berhasil sepenuhnya! Silakan login.');
+        return res.status(200).json({
+            success: true,
+            message: 'Instalasi sistem berhasil sepenuhnya! Silakan login.'
+        });
     } catch (err) {
         console.error('[SETUP ERROR]', err);
         res.render('pages/setup', {

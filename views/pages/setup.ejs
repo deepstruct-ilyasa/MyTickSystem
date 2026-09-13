@@ -4,20 +4,21 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#2563eb">
+    <link rel="icon" type="image/png" href="/logo.png">
     <title><%= title %></title>
     <!-- Tailwind CSS Lokal -->
     <link href="/css/output.css" rel="stylesheet">
 </head>
 <body class="min-h-full bg-gradient-to-tr from-slate-950 via-slate-900 to-blue-950 flex items-center justify-center p-4 sm:p-6 lg:p-8 font-sans antialiased selection:bg-blue-600 selection:text-white relative overflow-x-hidden">
 
-    <!-- Background Glow Effect (Sama seperti Halaman Login) -->
+    <!-- Background Glow Effect -->
     <div class="fixed w-96 h-96 bg-blue-600/20 rounded-full blur-3xl pointer-events-none -top-20 -left-20"></div>
     <div class="fixed w-96 h-96 bg-indigo-600/20 rounded-full blur-3xl pointer-events-none -bottom-20 -right-20"></div>
 
     <div class="relative w-full max-w-lg bg-white/[0.98] backdrop-blur-2xl rounded-3xl shadow-[0_25px_60px_-15px_rgba(0,0,0,0.5)] border border-white/40 overflow-hidden my-auto">
         
         <!-- Header Section -->
-        <div class="pt-8 pb-6 px-6 sm:px-10 text-center bg-gradient-to-b from-gray-50/80 to-transparent border-b border-gray-100 space-y-2">
+        <div class="pt-8 pb-3 px-6 sm:px-10 text-center bg-gradient-to-b from-gray-50/80 to-transparent border-b border-gray-100 space-y-2">
             <div class="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-blue-600 text-white shadow-lg shadow-blue-500/30 mb-1">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
@@ -28,15 +29,14 @@
                 <span id="stepIndicator" class="inline-block px-3 py-0.5 bg-blue-50 text-blue-600 font-bold text-[11px] rounded-full uppercase tracking-wider mb-1">
                     Langkah 1 dari 2
                 </span>
-                <h1 id="stepTitle" class="text-2xl sm:text-3xl font-black tracking-tight text-gray-900">Setup Wizard MyTickSystem</h1>
-                <p id="stepDesc" class="text-gray-500 text-xs sm:text-sm mt-1">Silakan konfigurasikan koneksi database PostgreSQL Anda.</p>
+                <h1 id="stepTitle" class="text-2xl sm:text-3xl font-black tracking-tight text-gray-900">Setup Wizard <br> MyTickSystem</h1>
             </div>
         </div>
 
-        <!-- Form Section -->
-        <form action="/setup" method="POST" class="p-6 sm:p-10 space-y-6" id="setupForm">
+        <!-- Form Section (Tanpa action tradisional agar bisa di-handle AJAX) -->
+        <form id="setupForm" class="p-6 sm:p-10 space-y-6">
             
-            <% if (error) { %>
+            <% if (typeof error !== 'undefined' && error) { %>
                 <div class="p-4 bg-red-50 border border-red-200 text-red-600 rounded-2xl text-xs sm:text-sm font-medium flex items-center space-x-2">
                     <svg class="w-5 h-5 flex-shrink-0 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
                     <span><%= error %></span>
@@ -46,7 +46,7 @@
             <!-- ================= STEP 1: DATABASE ================= -->
             <div id="step1Section" class="space-y-4">
                 <div class="grid grid-cols-2 gap-3">
-                    <div class="col-span-2">
+                    <div>
                         <label class="block text-xs font-semibold text-gray-700 uppercase mb-1.5">Database Host</label>
                         <input type="text" name="db_host" value="<%= typeof oldInput !== 'undefined' && oldInput.db_host ? oldInput.db_host : 'localhost' %>" required 
                             class="w-full px-4 py-3 bg-gray-50/70 border border-gray-200/80 rounded-2xl text-sm font-medium text-gray-900 focus:bg-white focus:ring-4 focus:ring-blue-500/10 focus:border-blue-600 focus:outline-none transition-all">
@@ -60,7 +60,7 @@
 
                 <div class="grid grid-cols-2 gap-3">
                     <div>
-                        <label class="block text-xs font-semibold text-gray-700 uppercase mb-1.5">Database User</label>
+                        <label class="block text-xs font-semibold text-gray-700 uppercase mb-1.5">User</label>
                         <input type="text" name="db_user" value="<%= typeof oldInput !== 'undefined' && oldInput.db_user ? oldInput.db_user : 'postgres' %>" required 
                             class="w-full px-4 py-3 bg-gray-50/70 border border-gray-200/80 rounded-2xl text-sm font-medium text-gray-900 focus:bg-white focus:ring-4 focus:ring-blue-500/10 focus:border-blue-600 focus:outline-none transition-all">
                     </div>
@@ -97,7 +97,7 @@
             <div id="step2Section" class="space-y-4 hidden">
                 <div>
                     <label class="block text-xs font-semibold text-gray-700 uppercase mb-1.5">Nama Perusahaan / Instansi</label>
-                    <input type="text" name="company_name" value="<%= typeof oldInput !== 'undefined' ? oldInput.company_name : '' %>" placeholder="Contoh: PT. Teknologi Nusantara" 
+                    <input type="text" name="company_name" value="<%= typeof oldInput !== 'undefined' ? oldInput.company_name : '' %>" placeholder="Contoh: PT. Teknologi Nusantara" required
                         class="w-full px-4 py-3 bg-gray-50/70 border border-gray-200/80 rounded-2xl text-sm font-medium text-gray-900 focus:bg-white focus:ring-4 focus:ring-blue-500/10 focus:border-blue-600 focus:outline-none transition-all">
                 </div>
 
@@ -110,19 +110,19 @@
                 <div class="grid grid-cols-2 gap-3">
                     <div>
                         <label class="block text-xs font-semibold text-gray-700 uppercase mb-1.5">NIP</label>
-                        <input type="text" name="admin_nip" value="<%= typeof oldInput !== 'undefined' && oldInput.admin_nip ? oldInput.admin_nip : '000000' %>" 
+                        <input type="text" name="admin_nip" value="<%= typeof oldInput !== 'undefined' && oldInput.admin_nip ? oldInput.admin_nip : '000000' %>" required
                             class="w-full px-4 py-3 bg-gray-50/70 border border-gray-200/80 rounded-2xl text-sm font-medium text-gray-900 focus:bg-white focus:ring-4 focus:ring-blue-500/10 focus:border-blue-600 focus:outline-none transition-all">
                     </div>
                     <div>
                         <label class="block text-xs font-semibold text-gray-700 uppercase mb-1.5">Nama Lengkap</label>
-                        <input type="text" name="admin_name" value="<%= typeof oldInput !== 'undefined' && oldInput.admin_name ? oldInput.admin_name : 'Administrator System' %>" 
+                        <input type="text" name="admin_name" value="<%= typeof oldInput !== 'undefined' && oldInput.admin_name ? oldInput.admin_name : 'Administrator System' %>" required
                             class="w-full px-4 py-3 bg-gray-50/70 border border-gray-200/80 rounded-2xl text-sm font-medium text-gray-900 focus:bg-white focus:ring-4 focus:ring-blue-500/10 focus:border-blue-600 focus:outline-none transition-all">
                     </div>
                 </div>
 
                 <div>
                     <label class="block text-xs font-semibold text-gray-700 uppercase mb-1.5">Password</label>
-                    <input type="password" name="admin_password" value="<%= typeof oldInput !== 'undefined' ? oldInput.admin_password : '' %>" placeholder="••••••••" 
+                    <input type="password" name="admin_password" placeholder="••••••••" required
                         class="w-full px-4 py-3 bg-gray-50/70 border border-gray-200/80 rounded-2xl text-sm font-medium text-gray-900 focus:bg-white focus:ring-4 focus:ring-blue-500/10 focus:border-blue-600 focus:outline-none transition-all">
                 </div>
 
@@ -131,7 +131,7 @@
                         class="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-3.5 px-3 rounded-2xl border border-gray-200 transition-all duration-200 flex items-center justify-center text-sm">
                         ⬅ Kembali
                     </button>
-                    <button type="submit" 
+                    <button type="submit" id="submitSetupBtn"
                         class="col-span-2 w-full bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white font-bold py-3.5 px-4 rounded-2xl shadow-xl shadow-blue-600/20 hover:shadow-blue-600/30 hover:scale-[1.01] active:scale-[0.99] transition-all duration-200 flex items-center justify-center space-x-2 text-sm">
                         <span>Selesaikan Instalasi 🚀</span>
                     </button>
@@ -147,6 +147,8 @@
 
     </div>
 
+    <script src="/vendor/sweetalert2.all.min.js"></script>
+
     <script>
         const step1Section = document.getElementById('step1Section');
         const step2Section = document.getElementById('step2Section');
@@ -156,7 +158,8 @@
         const testResultBox = document.getElementById('testResultBox');
         const stepIndicator = document.getElementById('stepIndicator');
         const stepTitle = document.getElementById('stepTitle');
-        const stepDesc = document.getElementById('stepDesc');
+        const setupForm = document.getElementById('setupForm');
+        const submitSetupBtn = document.getElementById('submitSetupBtn');
 
         // Fungsi Test Connection AJAX
         testConnBtn.addEventListener('click', async () => {
@@ -215,7 +218,6 @@
             step2Section.classList.remove('hidden');
             stepIndicator.textContent = 'Langkah 2 dari 2';
             stepTitle.textContent = 'Setup Wizard MyTickSystem';
-            stepDesc.textContent = 'Konfigurasi nama perusahaan dan akun administrator utama.';
         });
 
         // Tombol Kembali ke Langkah 1
@@ -224,7 +226,62 @@
             step1Section.classList.remove('hidden');
             stepIndicator.textContent = 'Langkah 1 dari 2';
             stepTitle.textContent = 'Setup Wizard MyTickSystem';
-            stepDesc.textContent = 'Silakan konfigurasikan koneksi database PostgreSQL Anda.';
+        });
+
+        // Submit Setup Wizard via AJAX dengan SweetAlert Popup
+        setupForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const formData = new FormData(setupForm);
+            const dataObj = Object.fromEntries(formData.entries());
+
+            submitSetupBtn.disabled = true;
+            submitSetupBtn.innerHTML = '<span class="animate-spin mr-2">⏳</span> Memproses Instalasi...';
+
+            try {
+                const response = await fetch('/setup', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(dataObj)
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Instalasi Berhasil! 🎉',
+                        text: result.message || 'Setup Wizard MyTickSystem telah selesai.',
+                        confirmButtonText: 'Masuk ke Halaman Login',
+                        confirmButtonColor: '#2563eb',
+                        allowOutsideClick: false,
+                        allowEscapeKey: false
+                    }).then((res) => {
+                        if (res.isConfirmed) {
+                            window.location.href = '/login';
+                        }
+                    });
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Gagal Menyimpan Setup',
+                        text: result.message || 'Terjadi kesalahan saat menginisialisasi sistem.',
+                        confirmButtonColor: '#dc2626'
+                    });
+                    submitSetupBtn.disabled = false;
+                    submitSetupBtn.innerHTML = '<span>Selesaikan Instalasi 🚀</span>';
+                }
+            } catch (err) {
+                console.error(err);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Kesalahan Server',
+                    text: 'Gagal terhubung ke server backend.',
+                    confirmButtonColor: '#dc2626'
+                });
+                submitSetupBtn.disabled = false;
+                submitSetupBtn.innerHTML = '<span>Selesaikan Instalasi 🚀</span>';
+            }
         });
     </script>
 </body>
