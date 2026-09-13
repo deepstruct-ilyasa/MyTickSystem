@@ -135,7 +135,8 @@
             </div>
 
             <div class="mt-5 space-y-2">
-                <% if (profileUser.profile_picture || finalCroppedUrl) { %>
+                <!-- ⭐ DIPERBAIKI: Menggunakan logika aman berbasis server-side dan client-side alpine ⭐ -->
+                <% if (profileUser.profile_picture) { %>
                     <a :href="finalCroppedUrl ? finalCroppedUrl : '/uploads/profile/<%= profileUser.profile_picture %>'" 
                        download="foto-profil-<%= profileUser.nip %>.jpg"
                        class="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-xl transition flex items-center justify-center space-x-2 shadow-sm">
@@ -144,6 +145,17 @@
                         </svg>
                         <span>Download Foto</span>
                     </a>
+                <% } else { %>
+                    <template x-if="finalCroppedUrl">
+                        <a :href="finalCroppedUrl" 
+                           download="foto-profil-<%= profileUser.nip %>.jpg"
+                           class="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-xl transition flex items-center justify-center space-x-2 shadow-sm">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                            </svg>
+                            <span>Download Foto</span>
+                        </a>
+                    </template>
                 <% } %>
 
                 <button type="button" @click="showProfileModal = false" class="w-full py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-xs rounded-xl transition">Tutup</button>
@@ -184,7 +196,6 @@ function profileForm() {
                 const reader = new FileReader();
                 reader.onload = e => {
                     this.tempImageUrl = e.target.result;
-                    // Buka modal otomatis setelah file dipilih supaya user bisa langsung atur posisi jika mau
                     this.openCropModal();
                 };
                 reader.readAsDataURL(file);
@@ -192,7 +203,6 @@ function profileForm() {
         },
 
         openCropModal() {
-            // Jika belum memilih file baru via input, jangan buka modal crop
             if (!this.tempImageUrl) {
                 return; 
             }
@@ -275,14 +285,13 @@ function profileForm() {
                         }
                     }
 
-                    // ⭐ BERSIHKAN STATE CROP SETELAH BERHASIL DISIMPAN ⭐
                     this.tempImageUrl = null; 
                     if (this.cropper) {
                         this.cropper.destroy();
                         this.cropper = null;
                     }
                     this.croppedBlob = null;
-                    this.$refs.fileInput.value = ''; // Reset input file HTML
+                    this.$refs.fileInput.value = ''; 
 
                     this.current_password = '';
                     this.new_password = '';

@@ -10,7 +10,7 @@ Sistem Informasi Manajemen Tiket berbasis web yang dirancang untuk mengelola alu
         - Manager: Mengawasi rekapitulasi dan penanganan tiket di unit kepemimpinannya beserta sub-unit di bawahnya.
         - Supervisor: Mengontrol dan memantau operasional tiket yang spesifik pada unit yang dipimpin.
         - Staf: Membuat dan merespons tiket yang masuk ke unit mereka.
-
+ 
 2. Dashboard Interaktif & Live Synchronization (Chart.js)
     - Statistik Real-Time: Kartu ringkasan jumlah tiket (Total, Open, In Progress, Resolved, Closed) yang diperbarui secara instan.
     - Tingkat Penyelesaian (Resolution Rate): Indikator persentase keberhasilan penyelesaian tiket yang dihitung secara dinamis berdasarkan filter aktif.
