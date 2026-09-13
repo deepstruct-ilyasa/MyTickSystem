@@ -1,4 +1,4 @@
-<div class="space-y-6" x-data="{ search: '', openAddModal: false, openImportModal: false, unitType: 'yes', realParentId: '', importLoading: false }">
+<div class="space-y-6" x-data="{ search: '', openAddModal: false, openImportModal: false, unitType: 'yes', unitCodeInput: 'MGMT', realParentId: '', importLoading: false }">
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
             <h1 class="text-2xl font-bold text-gray-800">Manajemen Unit</h1>
@@ -46,8 +46,21 @@
 
             <div class="space-y-4">
                 <p class="text-xs text-gray-500 leading-relaxed">
-                    Unggah file spreadsheet berformat <b class="text-gray-700">.xlsx</b> atau <b class="text-gray-700">.csv</b> untuk memasukkan data unit secara massal. Pastikan format kolom sesuai dengan template.
+                    Unggah file spreadsheet berformat <b class="text-gray-700">.xlsx</b> atau <b class="text-gray-700">.csv</b>.
                 </p>
+
+                <!-- ⭐ TAMBAHAN: DROPDOWN CABANG KHUSUS SUPERADMIN ⭐ -->
+                <% if (user.role === 'superadmin') { %>
+                    <div>
+                        <label class="block text-xs font-semibold uppercase text-gray-600 mb-1">Pilih Cabang Target</label>
+                        <select x-model="importBranchId" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                            <option value="">-- Pilih Cabang --</option>
+                            <% branches.forEach(b => { %>
+                                <option value="<%= b.id %>"><%= b.name %></option>
+                            <% }) %>
+                        </select>
+                    </div>
+                <% } %>
 
                 <!-- Tombol Download Template -->
                 <div>
@@ -68,7 +81,6 @@
                         <button type="button" @click="openImportModal = false" class="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-semibold transition">
                             Batal
                         </button>
-                        <!-- ⭐ Pastikan type tombol ini adalah "submit", dan form menggunakan @submit.prevent ⭐ -->
                         <button type="submit" :disabled="loading" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold shadow-sm transition flex items-center gap-2">
                             <span x-show="loading" class="animate-spin">⏳</span>
                             <span x-text="loading ? 'Mengimpor...' : 'Proses Import'"></span>
@@ -104,26 +116,28 @@
 
                 <div>
                     <label class="block text-xs font-semibold uppercase text-gray-600 mb-1">Nama Unit / Manajemen</label>
-                    <input type="text" name="name" required placeholder="Contoh: Divisi IT / Unit NOC" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                    <input type="text" name="name" required placeholder="Contoh: Mana" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none">
                 </div>
 
-                <div>
-                    <label class="block text-xs font-semibold uppercase text-gray-600 mb-1">Kode Unit (Sesuai Format Tiket)</label>
-                    <input type="text" name="unit_code" required placeholder="Contoh: NOC" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none">
-                </div>
-
+                <!-- JENIS UNIT -->
                 <div>
                     <label class="block text-xs font-semibold uppercase text-gray-600 mb-1">Jenis Unit</label>
-                    <select name="unit_type" x-model="unitType" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                    <select name="unit_type" x-model="unitType" @change="if(unitType === 'yes') { unitCodeInput = 'MGMT'; } else { unitCodeInput = ''; }" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none">
                         <option value="yes">Unit Manajemen (Utama)</option>
                         <option value="no">Sub Unit Operasional</option>
                     </select>
                 </div>
 
+                <!-- KODE UNIT DENGAN AWALAN OTOMATIS JIKA MANAJEMEN -->
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-gray-600 mb-1">Kode Unit</label>
+                    <input type="text" name="unit_code" x-model="unitCodeInput" required placeholder="Contoh: Information Technology" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                </div>
+
                 <div x-show="unitType === 'no'">
-                    <label class="block text-xs font-semibold uppercase text-gray-600 mb-1">Induk Unit Manajemen</label>
+                    <label class="block text-xs font-semibold uppercase text-gray-600 mb-1">Unit Manajemen</label>
                     <select name="parent_unit_id" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none">
-                        <option value="">-- Pilih Unit Induk --</option>
+                        <option value="">-- Pilih Unit Manajemen --</option>
                         <% units.filter(u => !u.parent_unit_id).forEach(u => { %>
                             <option value="<%= u.id %>"><%= u.name %></option>
                         <% }) %>
@@ -276,57 +290,66 @@
 </div>
 
 <script>
-function importHandler() {
-    return {
-        loading: false,
-        async submitImport() {
-            const fileInput = this.$refs.importFile;
-            if (!fileInput.files.length) {
-                Swal.fire('Peringatan', 'Silakan pilih file terlebih dahulu.', 'warning');
-                return;
-            }
+    function importHandler() {
+        return {
+            loading: false,
+            importBranchId: '',
+            async submitImport() {
+                if ('<%= user.role %>' === 'superadmin' && !this.importBranchId) {
+                    Swal.fire('Peringatan', 'Superadmin wajib memilih cabang target terlebih dahulu!', 'warning');
+                    return;
+                }
 
-            const formData = new FormData();
-            // ⭐ PERBAIKAN: Ambil file pertama dari array files ⭐
-            formData.append('file', fileInput.files[0]);
+                const fileInput = this.$refs.importFile;
+                if (!fileInput.files.length) {
+                    Swal.fire('Peringatan', 'Silakan pilih file terlebih dahulu.', 'warning');
+                    return;
+                }
 
-            this.loading = true;
-            try {
-                const response = await fetch('/units/import', {
-                    method: 'POST',
-                    body: formData
-                });
-                const result = await response.json();
+                const formData = new FormData();
+                formData.append('file', fileInput.files[0]);
+                
+                if ('<%= user.role %>' === 'superadmin') {
+                    formData.append('branch_id', this.importBranchId);
+                }
 
-                if (response.ok && result.success) {
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Berhasil!',
-                        text: result.message,
-                        confirmButtonColor: '#2563eb'
-                    }).then(() => {
-                        window.location.reload();
+                this.loading = true;
+                try {
+                    const response = await fetch('/units/import', {
+                        method: 'POST',
+                        body: formData
                     });
-                } else {
+                    const result = await response.json();
+
+                    if (response.ok && result.success) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Berhasil!',
+                            text: result.message,
+                            confirmButtonColor: '#2563eb'
+                        }).then(() => {
+                            window.location.reload();
+                        });
+                    } else {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Gagal Import',
+                            text: result.message || 'Terjadi kesalahan saat memproses data.',
+                            confirmButtonColor: '#dc2626'
+                        });
+                    }
+                } catch (err) {
+                    console.error(err);
                     Swal.fire({
                         icon: 'error',
-                        title: 'Gagal Import',
-                        text: result.message || 'Terjadi kesalahan saat memproses data.',
+                        title: 'Kesalahan Server',
+                        text: 'Gagal terhubung ke server.',
                         confirmButtonColor: '#dc2626'
                     });
+                } finally {
+                    this.loading = false;
                 }
-            } catch (err) {
-                console.error(err);
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Kesalahan Server',
-                    text: 'Gagal terhubung ke server.',
-                    confirmButtonColor: '#dc2626'
-                });
-            } finally {
-                this.loading = false;
             }
         }
     }
-}
 </script>

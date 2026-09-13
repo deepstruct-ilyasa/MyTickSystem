@@ -55,32 +55,36 @@ exports.listUnits = async (req, res) => {
 
 // Proses Tambah Unit (Tanpa ribet kode untuk unit manajemen)
 exports.createUnit = async (req, res) => {
-    const { branch_id, parent_unit_id, name, unit_code } = req.body;
+    let { branch_id, parent_unit_id, name, unit_code } = req.body;
     const user = req.session.user;
 
     try {
-        if (user.role === 'admin_cabang' && user.branch_id != branch_id) {
-            return res.status(403).send('Akses ditolak!');
+        // Paksa branch_id menggunakan session jika role-nya admin_cabang
+        if (user.role === 'admin_cabang') {
+            branch_id = user.branch_id;
+        }
+
+        if (!branch_id) {
+            return res.status(403).send('Akses ditolak atau Cabang tidak valid!');
         }
 
         const parentId = parent_unit_id && parent_unit_id !== '' ? parent_unit_id : null;
 
-        // 1. Hitung nomor urut terbesar KHUSUS untuk cabang ini agar mulai dari 1 lagi per cabang
+        // 1. Hitung nomor urut terbesar KHUSUS untuk cabang ini
         const lastSeqRes = await pool.query(
             'SELECT COALESCE(MAX(branch_sequence), 0) as max_seq FROM units WHERE branch_id = $1',
             [branch_id]
         );
         const nextBranchSeq = lastSeqRes.rows[0].max_seq + 1;
 
-        // 2. Logika kode unit otomatis jika parentId kosong (Unit Manajemen)
-        let finalCode = unit_code;
-        if (!parentId) {
-            const cleanName = name.replace(/[^a-zA-Z]/g, '').toUpperCase().substring(0, 4);
-            const randomSuffix = Math.floor(10 + Math.random() * 90);
-            finalCode = `MGR-${cleanName}-${randomSuffix}`;
+        // 2. Gunakan langsung kode unit yang diketik/dikirim dari form (tanpa random generator lagi)
+        const finalCode = unit_code ? unit_code.trim().toUpperCase() : '';
+
+        if (!finalCode || !name) {
+            return res.redirect('/units?error=Nama unit dan Kode unit wajib diisi.');
         }
 
-        // 3. Simpan ke database dengan menyertakan branch_sequence
+        // 3. Simpan ke database
         await pool.query(
             'INSERT INTO units (branch_id, parent_unit_id, name, unit_code, branch_sequence) VALUES ($1, $2, $3, $4, $5)',
             [branch_id, parentId, name, finalCode, nextBranchSeq]
@@ -89,7 +93,7 @@ exports.createUnit = async (req, res) => {
         res.redirect('/units?success=Unit berhasil ditambahkan!');
     } catch (err) {
         console.error('[UNIT ADD ERROR]', err);
-        res.redirect('/units?error=Gagal menambah unit. Periksa kembali data.');
+        res.redirect('/units?error=Gagal menambah unit. Kode unit mungkin sudah terdaftar.');
     }
 };
 
@@ -152,10 +156,15 @@ exports.bulkImportUnits = async (req, res) => {
         return res.status(400).json({ success: false, message: 'File Excel belum diunggah!' });
     }
 
-    const branch_id = req.session.user.branch_id; 
+    const user = req.session.user;
+    // ⭐ SUPERADMIN ambil dari form, ADMIN CABANG ambil dari session
+    const branch_id = user.role === 'superadmin' ? req.body.branch_id : user.branch_id; 
+
+    if (!branch_id) {
+        return res.status(400).json({ success: false, message: 'Cabang belum dipilih!' });
+    }
 
     try {
-        // Gunakan pool langsung untuk transaksi
         await pool.query('BEGIN');
 
         const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
@@ -181,12 +190,30 @@ exports.bulkImportUnits = async (req, res) => {
             }
 
             if (!parent_unit_code) {
+                // ⭐ Cek apakah unit dengan branch_id & unit_code ini sudah ada ⭐
+                const existingUnit = await pool.query(
+                    'SELECT id, branch_sequence FROM units WHERE branch_id = $1 AND unit_code = $2',
+                    [branch_id, unit_code.toString()]
+                );
+
+                let branch_sequence;
+                if (existingUnit.rows.length > 0) {
+                    branch_sequence = existingUnit.rows[0].branch_sequence;
+                } else {
+                    // Hitung sequence berikutnya khusus untuk cabang ini
+                    const seqRes = await pool.query(
+                        'SELECT COALESCE(MAX(branch_sequence), 0) + 1 AS next_seq FROM units WHERE branch_id = $1',
+                        [branch_id]
+                    );
+                    branch_sequence = seqRes.rows[0].next_seq;
+                }
+
                 await pool.query(`
-                    INSERT INTO units (branch_id, unit_code, name, parent_unit_id)
-                    VALUES ($1, $2, $3, NULL)
+                    INSERT INTO units (branch_id, unit_code, name, parent_unit_id, branch_sequence)
+                    VALUES ($1, $2, $3, NULL, $4)
                     ON CONFLICT (branch_id, unit_code) 
                     DO UPDATE SET name = EXCLUDED.name
-                `, [branch_id, unit_code.toString(), name]);
+                `, [branch_id, unit_code.toString(), name, branch_sequence]);
                 importedCount++;
             }
         }
@@ -204,12 +231,30 @@ exports.bulkImportUnits = async (req, res) => {
 
                 if (parentRes.rows.length > 0) {
                     const parent_unit_id = parentRes.rows[0].id;
+
+                    // ⭐ Cek branch_sequence untuk sub-unit ⭐
+                    const existingUnit = await pool.query(
+                        'SELECT id, branch_sequence FROM units WHERE branch_id = $1 AND unit_code = $2',
+                        [branch_id, unit_code.toString()]
+                    );
+
+                    let branch_sequence;
+                    if (existingUnit.rows.length > 0) {
+                        branch_sequence = existingUnit.rows[0].branch_sequence;
+                    } else {
+                        const seqRes = await pool.query(
+                            'SELECT COALESCE(MAX(branch_sequence), 0) + 1 AS next_seq FROM units WHERE branch_id = $1',
+                            [branch_id]
+                        );
+                        branch_sequence = seqRes.rows[0].next_seq;
+                    }
+
                     await pool.query(`
-                        INSERT INTO units (branch_id, unit_code, name, parent_unit_id)
-                        VALUES ($1, $2, $3, $4)
+                        INSERT INTO units (branch_id, unit_code, name, parent_unit_id, branch_sequence)
+                        VALUES ($1, $2, $3, $4, $5)
                         ON CONFLICT (branch_id, unit_code) 
                         DO UPDATE SET name = EXCLUDED.name, parent_unit_id = EXCLUDED.parent_unit_id
-                    `, [branch_id, unit_code.toString(), name, parent_unit_id]);
+                    `, [branch_id, unit_code.toString(), name, parent_unit_id, branch_sequence]);
                     importedCount++;
                 } else {
                     errors.push(`Baris ${i + 2}: Parent Unit "${parent_unit_code}" tidak ditemukan.`);
