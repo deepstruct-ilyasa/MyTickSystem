@@ -1,7 +1,7 @@
-const CACHE_NAME = 'myticksystem-v7';
+const CACHE_NAME = 'myticksystem-v8';
 const urlsToCache = [
     '/',
-    '/offline.html', // Daftarkan file offline statis di sini
+    '/offline.html',
     '/css/output.css',
     '/vendor/cropperjs/cropper.min.css',
     '/vendor/tom-select/tom-select.bootstrap5.min.css',
