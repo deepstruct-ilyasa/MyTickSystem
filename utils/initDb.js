@@ -105,19 +105,7 @@ const initializeDatabase = async () => {
                 );
             `);
 
-            // 8. Tabel Sequence (Anti-bentrok penomoran tiket)
-            await client.query(`
-                CREATE TABLE IF NOT EXISTS ticket_sequences (
-                    id SERIAL PRIMARY KEY,
-                    branch_code VARCHAR(50) NOT NULL,
-                    unit_code VARCHAR(50) NOT NULL,
-                    date DATE NOT NULL,
-                    last_sequence INTEGER NOT NULL,
-                    UNIQUE(branch_code, unit_code, date)
-                );
-            `);
-
-            // 9. Tabel Notifikasi In-App
+            // 8. Tabel Notifikasi In-App
             await client.query(`
                 CREATE TABLE IF NOT EXISTS notifications (
                     id SERIAL PRIMARY KEY,
@@ -130,7 +118,7 @@ const initializeDatabase = async () => {
                 );
             `);
 
-            // 10. Tabel Setting
+            // 9. Tabel Setting
             await client.query(`
                 CREATE TABLE IF NOT EXISTS settings (
                     key VARCHAR(100) PRIMARY KEY,

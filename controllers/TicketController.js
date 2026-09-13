@@ -13,7 +13,7 @@ const TicketController = {
                 return res.redirect('/tickets?error=Admin Cabang tidak dapat membuat ticket.');
             }
 
-            // [PERBAIKAN] Kategori yang muncul saat buat tiket difilter sesuai branch_id user yang login
+            // Kategori yang muncul saat buat tiket difilter sesuai branch_id user yang login
             const categoryQuery = await pool.query(
                 'SELECT category, issue_description FROM ticket_categories WHERE branch_id = $1 ORDER BY category ASC',
                 [user.branch_id]
@@ -145,27 +145,17 @@ const TicketController = {
             const unitCode = creatorInfo.rows[0]?.unit_code || 'GEN';
             const todayStr = new Date().toISOString().slice(0, 10);
 
-            let sequenceNumber = 1;
-            const seqCheck = await client.query(`
-                SELECT last_sequence FROM ticket_sequences 
-                WHERE branch_code = $1 AND unit_code = $2 AND date = $3::date
+            // ⭐ MENGGUNAKAN BRANCH_SEQUENCE MANDIRI PER CABANG ⭐
+            const seqRes = await client.query(`
+                SELECT COALESCE(MAX(branch_sequence), 0) + 1 AS next_seq 
+                FROM tickets 
+                WHERE branch_id = $1
                 FOR UPDATE
-            `, [branchCode, unitCode, todayStr]);
+            `, [user.branch_id]);
+            
+            const branchSequence = seqRes.rows[0].next_seq;
 
-            if (seqCheck.rows.length > 0) {
-                sequenceNumber = seqCheck.rows[0].last_sequence + 1;
-                await client.query(`
-                    UPDATE ticket_sequences SET last_sequence = $1 
-                    WHERE branch_code = $2 AND unit_code = $3 AND date = $4::date
-                `, [sequenceNumber, branchCode, unitCode, todayStr]);
-            } else {
-                await client.query(`
-                    INSERT INTO ticket_sequences (branch_code, unit_code, date, last_sequence) 
-                    VALUES ($1, $2, $3::date, $4)
-                `, [branchCode, unitCode, todayStr, sequenceNumber]);
-            }
-
-            const paddedSeq = String(sequenceNumber).padStart(3, '0');
+            const paddedSeq = String(branchSequence).padStart(3, '0');
             const dateFormatted = todayStr.replace(/-/g, '');
             const ticketNumber = `${branchCode}-${unitCode}-${dateFormatted}-${paddedSeq}`;
 
@@ -173,7 +163,6 @@ const TicketController = {
             if (req.file) {
                 const uploadDir = path.join(__dirname, '../public/uploads/tickets');
                 
-                // Buat folder otomatis jika belum ada
                 if (!fs.existsSync(uploadDir)) {
                     fs.mkdirSync(uploadDir, { recursive: true });
                 }
@@ -183,7 +172,6 @@ const TicketController = {
                 const newFilename = `${ticketNumber}-Lampiran${finalExt}`;
                 const outputPath = path.join(uploadDir, newFilename);
 
-                // Jika berupa gambar, kompres otomatis via Sharp (< 2MB)
                 if (mimeType.startsWith('image/')) {
                     await sharp(req.file.buffer)
                         .resize(1200, 1200, { fit: 'inside', withoutEnlargement: true })
@@ -192,18 +180,18 @@ const TicketController = {
                     
                     attachmentUrl = `/uploads/tickets/${newFilename}`;
                 } else if (mimeType === 'application/pdf') {
-                    // Jika PDF, simpan langsung dari buffer RAM
                     fs.writeFileSync(outputPath, req.file.buffer);
                     attachmentUrl = `/uploads/tickets/${newFilename}`;
                 }
             }
 
+            // ⭐ MENYERTAKAN branch_sequence SAAT INSERT KE TABEL tickets ⭐
             const insertTicketQuery = `
                 INSERT INTO tickets (
                     ticket_number, branch_id, creator_unit_id, creator_id, target_unit_id, 
                     category, issue_description, description, priority, 
-                    status, attachment_url, created_at
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'Open', $10, CURRENT_TIMESTAMP)
+                    status, attachment_url, branch_sequence, created_at
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'Open', $10, $11, CURRENT_TIMESTAMP)
                 RETURNING id;
             `;
 
@@ -217,7 +205,8 @@ const TicketController = {
                 finalIssueDesc,
                 details,
                 priority,
-                attachmentUrl
+                attachmentUrl,
+                branchSequence
             ]);
 
             const ticketId = ticketResult.rows[0].id;
@@ -242,10 +231,6 @@ const TicketController = {
 
         } catch (error) {
             await client.query('ROLLBACK');
-            
-            // Catatan: Karena menggunakan memoryStorage, file tidak masuk ke disk terlebih dahulu, 
-            // jadi perintah fs.unlinkSync untuk req.file sudah tidak diperlukan lagi.
-            
             console.error('[TicketController] Gagal menyimpan tiket:', error);
             res.redirect('/tickets/create?error=Gagal menyimpan tiket. Silakan coba lagi.');
         } finally {
@@ -450,7 +435,6 @@ const TicketController = {
         try {
             const user = req.session.user;
             
-            // [PERBAIKAN] Mengembalikan JOIN branches agar master kategori menampilkan nama cabang dengan benar
             let query = `
                 SELECT tc.*, b.name as branch_name, 
                        u_creator.name as creator_name, 
@@ -462,7 +446,6 @@ const TicketController = {
             `;
             let params = [];
 
-            // Jika bukan superadmin, batasi hanya melihat kategori milik cabangnya sendiri
             if (user.role !== 'superadmin' && user.branch_id) {
                 query += ` WHERE tc.branch_id = $1`;
                 params.push(user.branch_id);
