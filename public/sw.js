@@ -1,4 +1,4 @@
-const CACHE_NAME = 'myticksystem-v8';
+const CACHE_NAME = 'myticksystem-v10';
 const urlsToCache = [
     '/',
     '/offline.html',
@@ -10,6 +10,9 @@ const urlsToCache = [
     '/vendor/alpine.min.js',
     '/vendor/sweetalert2.all.min.js',
     '/vendor/chart.umd.min.js',
+    '/logo.png',
+    '/logo-192.png',
+    '/logo-512.png'
 ];
 
 // 1. Install Service Worker & Cache Aset Dasar
