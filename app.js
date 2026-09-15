@@ -49,7 +49,10 @@ app.use(session({
     secret: process.env.SESSION_SECRET || 'SecretSuperKuat2026',
     resave: false,
     saveUninitialized: false,
-    cookie: { secure: false }
+    cookie: { 
+        secure: false,
+        maxAge: 60 * 60 * 1000 // Sesi otomatis berakhir setelah 1 jam tidak aktif
+    }
 }));
 
 // ==========================================

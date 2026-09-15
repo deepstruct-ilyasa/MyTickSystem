@@ -140,12 +140,12 @@
         </div>
 
         <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 flex items-center space-x-4">
-            <div class="p-3 bg-blue-50 text-blue-600 rounded-xl">
+            <div class="p-3 bg-blue-50 text-blue-600 rounded-xl shrink-0">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
             </div>
-            <div>
-                <p class="text-xs font-semibold uppercase text-gray-400">Inprogress</p>
-                <h3 class="text-2xl font-bold text-gray-900 mt-1" id="statProcess"><%= stats.total_process %></h3>
+            <div class="overflow-hidden">
+                <p class="text-xs font-semibold uppercase text-gray-400 truncate">Inprogress</p>
+                <h3 class="text-2xl font-bold text-gray-900 mt-1" id="statInprogress"><%= stats.total_inprogress %></h3>
             </div>
         </div>
 
@@ -539,7 +539,7 @@
 
         const statTotal = document.getElementById('statTotal');
         const statOpen = document.getElementById('statOpen');
-        const statProcess = document.getElementById('statProcess');
+        const statInprogress = document.getElementById('statInprogress');
         const statResolved = document.getElementById('statResolved');
         const statClosed = document.getElementById('statClosed');
         const ticketTableBody = document.getElementById('ticketTableBody');
@@ -549,7 +549,7 @@
         const initialStats = {
             total_inbox: '<%= stats.total_inbox %>',
             total_open: '<%= stats.total_open %>',
-            total_process: '<%= stats.total_process %>',
+            total_inprogress: '<%= stats.total_inprogress %>',
             total_resolved: '<%= stats.total_resolved %>',
             total_closed: '<%= stats.total_closed %>'
         };
@@ -586,7 +586,7 @@
                         // Update angka statistik hanya jika berubah
                         if (statTotal && statTotal.textContent != data.stats.total_inbox) statTotal.textContent = data.stats.total_inbox;
                         if (statOpen && statOpen.textContent != data.stats.total_open) statOpen.textContent = data.stats.total_open;
-                        if (statProcess && statProcess.textContent != data.stats.total_process) statProcess.textContent = data.stats.total_process;
+                        if (statInprogress && statInprogress.textContent != data.stats.total_inprogress) statInprogress.textContent = data.stats.total_inprogress;
                         if (statResolved && statResolved.textContent != data.stats.total_resolved) statResolved.textContent = data.stats.total_resolved;
                         if (statClosed && statClosed.textContent != data.stats.total_closed) statClosed.textContent = data.stats.total_closed;
 
